@@ -26,8 +26,10 @@ fonttools==4.25.0
 idna @ file:///tmp/build/80754af9/idna_1637925883363/work
 importlib-metadata @ file:///C:/ci/importlib-metadata_1648544469310/work
 ipykernel @ file:///C:/ci/ipykernel_1647000977835/work/dist/ipykernel-6.9.1-py3-none-any.whl
+ipympl==0.9.0
 ipython @ file:///C:/ci/ipython_1648799052714/work
 ipython-genutils @ file:///tmp/build/80754af9/ipython_genutils_1606773439826/work
+ipywidgets==7.7.0
 isort @ file:///tmp/build/80754af9/isort_1628603791788/work
 jedi @ file:///C:/ci/jedi_1644315428305/work
 Jinja2 @ file:///opt/conda/conda-bld/jinja2_1647436528585/work
@@ -39,6 +41,7 @@ jupyter-server @ file:///opt/conda/conda-bld/jupyter_server_1644494914632/work
 jupyterlab @ file:///opt/conda/conda-bld/jupyterlab_1647445413472/work
 jupyterlab-pygments @ file:///tmp/build/80754af9/jupyterlab_pygments_1601490720602/work
 jupyterlab-server @ file:///opt/conda/conda-bld/jupyterlab_server_1644500396812/work
+jupyterlab-widgets==1.1.0
 kiwisolver @ file:///C:/ci_310/kiwisolver_1642083321497/work
 lazy-object-proxy @ file:///C:/ci_310/lazy-object-proxy_1642083437654/work
 MarkupSafe @ file:///C:/ci_310/markupsafe_1642084045935/work
@@ -99,6 +102,7 @@ urllib3 @ file:///opt/conda/conda-bld/urllib3_1643638302206/work
 wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
 webencodings==0.5.1
 websocket-client @ file:///C:/ci_310/websocket-client_1642093970919/work
+widgetsnbextension==3.6.0
 win-inet-pton @ file:///C:/ci_310/win_inet_pton_1642658466512/work
 wincertstore==0.2
 wrapt @ file:///C:/ci_310/wrapt_1642094330997/work

@@ -120,23 +120,13 @@ def plot_filled_rect(ax: plt.Axes, P: np.ndarray, color: str, **kwargs):
 
 
 def main():
-    """
-    Vector&Quaternion experiment
-    V = (-1, 0, 0)
-    NAV = (0, -1, 0)
-    #q = eulerto_quaternion(0, 90, 0, degree=True)
-    q = np.array([0, 0, 0.707, 0.707])
-    V_ = rotate_vector_by_quaternion(NAV, q)
-    print(q)
-    print(V, V_)
-    """
-
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
     ax.invert_zaxis()
+    ax.invert_xaxis()
 
     kiz = np.array(points_from([10.3, -10.2, 4.32], [11.55, -6.4, 5.57]))
     koz1 = np.array(
@@ -157,7 +147,20 @@ def main():
     plot_scatter(ax, np.array([(10.76150, -6.88490, 5.31647)]), color="red", size=24)
 
     # Astrobee Vector
-    # ax.quiver(10.76150, -6.88490, 5.31647, V[0], V[1], V[2], color="red", length=0.2)
+    """
+    Vector&Quaternion experiment
+    NAV = (0, -1, 0)
+    q = np.array([0, 0, 0.707, 0.707])
+    V_ = rotate_vector_by_quaternion(NAV, q)
+    print(q)
+    print(V, V_)
+    """
+    # V = (1, 0, 0)
+    # q = eulerto_quaternion(0, 90, 0, degree=True)
+    # V_ = rotate_vector_by_quaternion(V, q)
+    ax.quiver(10.76150, -6.88490, 5.31647, 0, 1, 0, color="red", length=0.2)
+    ax.quiver(10.76150, -6.88490, 5.31647, 1, 0, 0, color="red", length=0.2)
+    ax.quiver(10.76150, -6.88490, 5.31647, 0, 0, 1, color="red", length=0.2)
     # ax.quiver(10.76150, -6.88490, 5.31647, NAV[0], NAV[1], NAV[2], color="green", length=0.2)
     # ax.quiver(10.76150, -6.88490, 5.31647, V_[0], V_[1], V_[2], length=0.2)
 
