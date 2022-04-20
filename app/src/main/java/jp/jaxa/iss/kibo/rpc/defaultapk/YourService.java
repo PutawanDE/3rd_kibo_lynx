@@ -103,22 +103,26 @@ public class YourService extends KiboRpcService {
 
 
         try {
-             move_to(point_A, q_A);
+            mission_point_A();
 
             api.reportPoint1Arrival();
 
+
+            //mission_target_1
             api.laserControl(true);
             api.takeTarget1Snapshot();
             api.laserControl(false);
             Bitmap image_A = api.getBitmapDockCam();
             Bitmap image1_A = api.getBitmapNavCam();
-//             save the image
+            //       save the image
             api.saveBitmapImage(image_A, "A DockCam");
             api.saveBitmapImage(image1_A, "A NavCam");
-
             Thread.sleep(1000);
+
+
+
             //move to b
-            move_to_B();
+            mission_point_B();
 
             api.laserControl(true);
             api.takeTarget1Snapshot();
@@ -147,8 +151,6 @@ public class YourService extends KiboRpcService {
         final Point point_A = new Point(10.71000, -7.70000, 4.48000);
         final Quaternion q_A = new Quaternion(0.0f, 0.707f, 0.0f, 0.707f);
         boolean point_A_Succeeded;
-
-        boolean qr_read_Succeeded;
 
         try {
             point_A_Succeeded = move_to(point_A, q_A);
@@ -185,13 +187,24 @@ public class YourService extends KiboRpcService {
     }
 
 
-    private boolean mission_point_A_prime(){
-        final Point point_A_prime = new Point(11.27460, -9.92284, 5.29881);
-        final Quaternion q_A_prime = new Quaternion(0.0f, 0.707f, 0.0f, 0.707f);
-        boolean point_A_prime_Succeeded;
+    private boolean mission_point_B(){
+        final Quaternion q_B = new Quaternion(0f, 0f, -0.707f, 0.707f);
+
+        final Point point_B_0 = new Point(10.876214285714285, -8.5, 4.97063);
+        final Point point_B_1 = new Point(11.0067, -9.44819, 5.186407142857143);
+        final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);
+
+        move_to(point_B_0,q_B);
+        move_to(point_B_1,q_B);
+        move_to(point_B_target,q_B);
+
+        boolean point_B_prime_Succeeded;
         try {
-            point_A_prime_Succeeded = move_to(point_A_prime,  q_A_prime);
-            return  point_A_prime_Succeeded;
+            move_to(point_B_0,q_B);
+            move_to(point_B_1,q_B);
+
+            point_B_prime_Succeeded = move_to(point_B_target,  q_B);
+            return  point_B_prime_Succeeded;
 
         }catch (Exception e){
             return  false;
@@ -224,15 +237,20 @@ public class YourService extends KiboRpcService {
     }
 
     private void mission_report(){
-        final Point point_report = new Point(11.27460, -9.92284, 5.29881);
-        final Quaternion q_report = new Quaternion(0.0f, 0.707f, 0.0f, 0.707f);
+        final Quaternion q_Goal = new Quaternion(0f, 0f, -0.707f, 0.707f);
+
+        final Point point_Goal_0 = new Point(11.0067, -9.44819, 5.1722);
+        final Point point_Goal_1 = new Point(11.073773469387755, -8.5, 4.97063);
+        final Point point_Goal_2 = new Point(11.2746, -7.89178, 4.96538);
+
+
 
         boolean cleared;
 
-        move_to(point_report,  q_report);
 
-
-
+        move_to(point_Goal_0,q_Goal);
+        move_to(point_Goal_1,q_Goal);
+        move_to(point_Goal_2,q_Goal);
 
 
         do {
@@ -267,16 +285,7 @@ public class YourService extends KiboRpcService {
         return  true;
     }
     private boolean move_to_B(){
-        final Quaternion q_B = new Quaternion(0f, 0f, -0.707f, 0.707f);
 
-        final Point point_B_0 = new Point(10.876214285714285, -8.5, 4.97063);
-        final Point point_B_1 = new Point(11.0067, -9.44819, 5.186407142857143);
-        final Point point_B_2 = new Point(11.2746, -9.92284, 5.29881);
-
-
-        move_to(point_B_0,q_B);
-        move_to(point_B_1,q_B);
-        move_to(point_B_2,q_B);
 
         return true;
     }
