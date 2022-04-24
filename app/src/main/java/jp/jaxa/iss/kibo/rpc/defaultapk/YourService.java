@@ -41,7 +41,8 @@ public class YourService extends KiboRpcService {
     boolean check_point_B = false;
     boolean check_target_2 = false;
 
-    boolean FAIL_to_READ_AR= false;
+    boolean FAIL_to_Find_TARGET = false;
+    boolean It_realworld = false;
     final String FailTAG = "Fail_method";
 
 
@@ -68,10 +69,12 @@ public class YourService extends KiboRpcService {
         // move to point A'
         check_point_B = mission_point_B();
 
+//        mission_test();
+
         // shoot point 2
         check_target_2 = mission_target_2();
 
-//        mission_test();
+
         mission_report();
     }
 
@@ -87,32 +90,34 @@ public class YourService extends KiboRpcService {
 
     private void  mission_test(){
         try {
+            final Point point_20cm = new Point(11.0746, -9.92284, 5.29881);
+            final Point point_90cm = new Point(11.2746, -9.92284, 5.29881);
 
-            final Point point_50cm = new Point(10.71000, -7.5000, 4.48000);
-            final Quaternion q_A = new Quaternion(0.0f, 0.707f, 0.0f, 0.707f);
-            check_point_A = mission_point_A();
-
-            api.laserControl(true);
-            api.takeTarget1Snapshot();
-            Thread.sleep(5000);
-            Bitmap laserPic = api.getBitmapNavCam();
-            api.saveBitmapImage(laserPic, "laser targer 1 at A");
-            api.laserControl(false);
-
+            final Quaternion q_B = new Quaternion(0f, 0f, -0.707f, 0.707f);
             Thread.sleep(10000);
+            for (int i = 0 ; i < 2 ; i++) {
+                move_to(point_90cm, q_B);
+                api.laserControl(true);
+                api.takeTarget1Snapshot();
+                Thread.sleep(5000);
+                Bitmap laserPic = api.getBitmapNavCam();
+                api.saveBitmapImage(laserPic, "laser targer 1 at B");
+                api.laserControl(false);
+
+                Thread.sleep(10000);
 
 
-            move_to(point_50cm, q_A);
-            api.laserControl(true);
-            api.takeTarget1Snapshot();
-            Thread.sleep(5000);
-            Bitmap Pic_50 = api.getBitmapNavCam();
-            api.saveBitmapImage(Pic_50, "laser targer 2 at A");
-            api.laserControl(false);
+                move_to(point_20cm, q_B);
+                api.laserControl(true);
+                api.takeTarget1Snapshot();
+                Thread.sleep(5000);
+                Bitmap Pic_50 = api.getBitmapNavCam();
+                api.saveBitmapImage(Pic_50, "laser targer 2 at B");
+                api.laserControl(false);
 
-            Thread.sleep(5000);
+                Thread.sleep(5000);
 
-
+            }
         }catch (Exception e ){
             Log.i(FailTAG, "mission_test =" + e);
         }
@@ -159,7 +164,7 @@ public class YourService extends KiboRpcService {
 
             if(aim_Succeed) {
                 //#######################
-                if(FAIL_to_READ_AR && !debug){
+                if(FAIL_to_Find_TARGET && It_realworld){
                     Log.i(FailTAG, "FAIL_to_READ_AR target_1");
                     return  false;
                 }
@@ -191,12 +196,8 @@ public class YourService extends KiboRpcService {
 
         final Point point_B_0 = new Point(10.876214285714285, -8.5, 4.97063);
         final Point point_B_1 = new Point(11.0067, -9.44819, 5.186407142857143);
+//        final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);
         final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);
-
-        move_to(point_B_0,q_B);
-        move_to(point_B_1,q_B);
-        move_to(point_B_target,q_B);
-
         boolean point_B_prime_Succeeded;
         try {
             move_to(point_B_0,q_B);
@@ -225,7 +226,8 @@ public class YourService extends KiboRpcService {
             for (int i = 0 ; i < 10 ; i++){
 
                 // AI aim and shoot
-                if(i == 0 || i == 5){
+                //if(i == 0 || i == 5){
+                if(i == 0){
                     int aim_try = 0;
                     do {
                         aim_Succeed = aim_shoot("B");
@@ -241,7 +243,7 @@ public class YourService extends KiboRpcService {
 
                 if(aim_Succeed || debug) {
                     //#######################
-                    if(FAIL_to_READ_AR && !debug){
+                    if(FAIL_to_Find_TARGET && It_realworld){
                         Log.i(FailTAG, "FAIL_to_READ_AR target_2");
                         return  false;
                     }
@@ -253,8 +255,10 @@ public class YourService extends KiboRpcService {
                     api.takeTarget2Snapshot();
 
 
-                    if(i == 0 || i == 5){
-                        Bitmap laserPic = api.getBitmapNavCam();
+//                    if(i == 0 || i == 5){
+                    if(i == 0){
+
+                            Bitmap laserPic = api.getBitmapNavCam();
                         api.saveBitmapImage(laserPic, "laser B try "+i);
                     }
                 }else {
@@ -316,52 +320,55 @@ public class YourService extends KiboRpcService {
     }
 
     private boolean  aim_shoot(String targetType){
-
-            Mat undistort_Cam = undistortPic(api.getMatNavCam());
+        final String TAG = "aim_shoot";
+        try {
+            Thread.sleep(1000);
+            Mat pic_cam =  api.getMatNavCam();
+            Thread.sleep(1000);
+            Mat undistort_Cam = undistortPic(pic_cam);
 
             if (targetType.equals("A")){
-//                api.saveMatImage(undistort_Cam, "Point A unaim");
-
                 Quaternion q_target1 = new Quaternion(0f, 0.707f, 0f, 0.707f);
                 Point point_to_shoot_target1 = new Point(10.71, -7.811971 , 4.48);
                 move_to(point_to_shoot_target1, q_target1);
-
-
-//                Mat point_A_aim = undistortPic(api.getMatNavCam());
-//                api.saveMatImage(point_A_aim, "A Point A aim");
-
-
-            }else if(targetType.equals("B")){
+            }
+            else if(targetType.equals("B")){
 
                 if(debug && !debug_pointB_unaim_snap){
-                    api.saveMatImage(undistort_Cam, "Point B unaim" + ( debug_Timestart - System.currentTimeMillis() ));
+                    api.saveMatImage(undistort_Cam, "Point B unaim" + ( System.currentTimeMillis()-debug_Timestart ));
                     debug_pointB_unaim_snap = true;
                 }
-                final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);
 
-//              double[] laser = {711, 455};
-
+//                final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);  // original
+//                final Point point_B_target = new Point(11.1752, -9.92284, 5.29881);  // + 0.0994
+                final Point point_B_target = new Point(11.1352, -9.92284, 5.29881);   // +0.0994 + 0.04
                 //#######################################
                 // FIX Quaternion to shoot target2
                 Mat  undistort_AR_Center = cam_ar_read(undistort_Cam);
-//                double[] angleToTurn = pixelDistanceToAngle(undistort_AR_Center.get(0, 0));
-//                Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
-//                Quaternion qToTurn_Target2  = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
-//                move_to(point_B_target, qToTurn_Target2);
+                double[] target = undistort_AR_Center.get(0, 0);
+                Log.i(TAG, "Targrt At =" + "x +350: " + target[0]+350 +"y +350: " + target[1]+350   );
+
+                double[] angleToTurn = pixelDistanceToAngle(undistort_AR_Center.get(0, 0));
+                Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
+                Quaternion qToTurn_Target2  = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
+                move_to(point_B_target, qToTurn_Target2);
                 //#######################################
 
                 if(debug && !debug_pointB_aim_snap){
                     Mat undistort_B_Aim = undistortPic(api.getMatNavCam());
-                    api.saveMatImage(undistort_B_Aim, "Point B aim" + ( debug_Timestart - System.currentTimeMillis() ));
+                    api.saveMatImage(undistort_B_Aim, "Point B aim" + (System.currentTimeMillis()-debug_Timestart ));
                     debug_pointB_aim_snap = true;
                 }
-
-
-
             }else {
                 Log.i(FailTAG, "aim_shoot mode Fail");
             }
-        return  true;
+            return  true;
+
+        }catch (Exception e){
+            Log.i(FailTAG, "aim_shoot =" + e);
+            Log.i(TAG, "Fail aim_shoot =" + e);
+            return  false;
+        }
     }
 
     class arTag_data {
@@ -388,32 +395,31 @@ public class YourService extends KiboRpcService {
                 Log.i(TAG, "Reading AR");
 
         int counter = 0;
+        Mat cropPic = new Mat(undistortPic, new Rect(350, 350, 600, 360)); 
+//        Mat pic = undistortPic;
         while (ids.rows() < 4 && counter < LOOP_MAX) { // try 3 until find all 4 ids
             //############ detect Markers ############
-            Mat pic = new Mat(undistortPic, new Rect(320, 240, 640, 500));
-            Aruco.detectMarkers(pic, bluePrint, corners, ids); // find all ids
+            api.saveMatImage(cropPic, "crop for detect");
+            Aruco.detectMarkers(cropPic, bluePrint, corners, ids); // find all ids
             //########################
             counter++;
         }
         Log.i(TAG, "ids= " + ids.dump());
-                end = System.currentTimeMillis();
-                Log.i(TAG, "ar_read_time=" + (end-start));
+        end = System.currentTimeMillis();
+        Log.i(TAG, "ar_read_time=" + (end-start));
 
         arTag_data[] arTag = new  arTag_data[4];
 
         if(ids.rows() == 4) {
             Log.i(TAG, "All 4 ids are found.");
-
             double ar_x_avg_px=0;
             double ar_y_avg_px=0;
-
 
             for (int i = 0; i < 4; i++) {
                 arTag[i] =  getArTag_data(corners.get(i));
                 //                Log.i(TAG, "Marker Center[" + i + "](id: " + ids.get(i, 0)[0] + ")=" + markersCenter[i].dump());
 
                 Log.i(TAG, "imagePoint_x at "+ i +":"+ + (int)arTag[i].imagePoint_x + ",imagePoint_y at " + i +":"+ (int) arTag[i].imagePoint_y  );
-
                 ar_x_avg_px += arTag[i].size_x;
                 ar_y_avg_px += arTag[i].size_y;
             }
@@ -424,56 +430,56 @@ public class YourService extends KiboRpcService {
             Log.i(TAG, "meter_perPx : " + meter_perPx );
             Log.i(TAG, "Center x : " + (arTag[0].imagePoint_x + arTag[1].imagePoint_x + arTag[2].imagePoint_x + arTag[3].imagePoint_x) / 4.0f );
             Log.i(TAG, "Center y : " + (arTag[0].imagePoint_y + arTag[1].imagePoint_y + arTag[2].imagePoint_y + arTag[3].imagePoint_y ) / 4.0f );
-            int[] rect = findRect_crop(arTag);
 
-            int start_x = rect[0];
-            int start_y = rect[1];
-            int pic_width =  rect[2];
-            int pic_height = rect[3] ;
 
-            Log.i(TAG, "Rect" + start_x + "," + (int) start_y +"," + pic_width   +"," + pic_height );
+//            int[] rect = findRect_crop(arTag);
+//            int start_x = rect[0] + 320;
+//            int start_y = rect[1] + 240;
+//            int pic_width =  rect[2];
+//            int pic_height = rect[3] ;
+//            Log.i(TAG, "Rect" + start_x + "," + start_y +"," + pic_width   +"," + pic_height );
+//            Mat crop_findCenter = new Mat(undistortPic, new Rect(start_x, start_y,pic_width, pic_height));
+//            api.saveMatImage(crop_findCenter, "Point B crop target");
 
-            Mat crop_findCenter = new Mat(undistortPic, new Rect(start_x, start_y,pic_width, pic_height));
-            api.saveMatImage(crop_findCenter, "Point B crop target");
-
-            Mat Center_Target = findTargetCenter_Cycle(crop_findCenter);
-//        Log.i(TAG, "distorted=" + AR_Center.dump());
-
+            Mat Center_Target = findTargetCenter_Cycle(cropPic);
+            Log.i(TAG, "Targrt At =" + Center_Target.dump() );
 //        end = System.currentTimeMillis();
 //        Log.i(TAG, "ar_read+process_time=" + (end-start));
             return  Center_Target;
         } else {
-            FAIL_to_READ_AR = true;
+            FAIL_to_Find_TARGET = true;
             Log.i(FailTAG, "AR detectMarkers");
-             Log.i(TAG, "--Fail: Only found " + ids.rows() + " markers");
+            Log.i(TAG, "--Fail: Only found " + ids.rows() + " markers");
             return undistortPic;
         }
     }
-    private int[] findRect_crop(arTag_data[] arTag){
-        int min_x = Integer.MAX_VALUE;
-        int max_x = -1;
-        int min_y = Integer.MAX_VALUE;
-        int max_y = -1;
-
-        for (int i = 0; i < 4; i++) {
-            if (arTag[i].imagePoint_x < min_x) {
-                min_x = (int) arTag[i].imagePoint_x;
-            }
-            if (arTag[0].imagePoint_x > max_x) {
-                max_x = (int) arTag[i].imagePoint_x;
-            }
-            if (arTag[i].imagePoint_y < min_y) {
-                min_y = (int) arTag[i].imagePoint_y;
-            }
-            if (arTag[i].imagePoint_y > max_y) {
-                max_y = (int) arTag[i].imagePoint_y;
-            }
-        }
-        int[] rect = {min_x,max_y,max_x - min_x,max_y - min_y};
-        return rect;
-        }
+//    private int[] findRect_crop(arTag_data[] arTag){
+//        int min_x = Integer.MAX_VALUE;
+//        int max_x = -1;
+//        int min_y = Integer.MAX_VALUE;
+//        int max_y = -1;
+//
+//        for (int i = 0; i < 4; i++) {
+//            if (arTag[i].imagePoint_x < min_x) {
+//                min_x = (int) arTag[i].imagePoint_x;
+//            }
+//            if (arTag[i].imagePoint_x > max_x) {
+//                max_x = (int) arTag[i].imagePoint_x;
+//            }
+//            if (arTag[i].imagePoint_y < min_y) {
+//                min_y = (int) arTag[i].imagePoint_y;
+//            }
+//            if (arTag[i].imagePoint_y > max_y) {
+//                max_y = (int) arTag[i].imagePoint_y;
+//            }
+//        }
+//        min_y -=60;
+//        int[] rect = {min_x,min_y ,max_x - min_x,max_y - min_y};
+//        return rect;
+//        }
 
     private arTag_data getArTag_data (Mat corners) { // find center && distance
+        final String TAG = "getArTag_data";
         double xCenter;
         double yCenter;
         double xLeft=0;
@@ -487,9 +493,11 @@ public class YourService extends KiboRpcService {
         xCenter = (corners.get(0, 0)[0] + corners.get(0, 1)[0] + corners.get(0, 2)[0] + corners.get(0, 3)[0]) / 4.0f;
 
         yCenter = (corners.get(0, 0)[1] + corners.get(0, 1)[1] + corners.get(0, 2)[1] + corners.get(0, 3)[1]) / 4.0f;
+        for(int i =0 ; i<4 ; i++) {
+            Log.i(TAG, "corners: " +i  + " corners_x:" +corners.get(0, i)[0] + " corners_y:" +corners.get(0, i)[1] );
+        }
 
-
-        // ###########################
+            // ###########################
         // find in undistort ???
         for(int i =0 ; i<4 ; i++){      // for X axis
             if(corners.get(0, i)[0] < xCenter){
@@ -506,7 +514,7 @@ public class YourService extends KiboRpcService {
             }
     }
         AR_xDist = (xRight-xLeft)/2;
-        AR_yDist = (yUp-yDown)/2;
+        AR_yDist = (yDown-yUp)/2;
         // ###########################
         return new arTag_data(AR_xDist,AR_yDist,xCenter,yCenter);
     }
@@ -537,10 +545,12 @@ public class YourService extends KiboRpcService {
             double[] point = {center.x, center.y};
             out.put(0, 0, point);
             Log.i(TAG, "Succeed findTargetCenter =" + out.dump());
-            api.saveMatImage(out, "Point B target center");
             return out;
 
         }catch (Exception e){
+            //######################
+            FAIL_to_Find_TARGET = true;
+            //######################
             Log.i(FailTAG, "findTargetCenter_Cycle =" + e);
             Mat out = new Mat(1, 1, CvType.CV_32FC2);
             double[] point = { -1 , -1};
@@ -555,7 +565,7 @@ public class YourService extends KiboRpcService {
 
     private Mat undistortPic(Mat pic) {
         final String TAG = "undistortPic";
-        api.saveMatImage(pic, "Input Pic to undistort");
+        api.saveMatImage(pic, "Input Pic to undistort " +(System.currentTimeMillis()-debug_Timestart  ));
         final double[] CAM_MATSIM = {
                 567.229305, 0.0, 659.077221,
                 0.0, 574.192915, 517.007571,
@@ -581,7 +591,7 @@ public class YourService extends KiboRpcService {
 
             undistort(pic, out, cameraMat,distCoeffs);
 
-            api.saveMatImage(out, "undistort pic");
+            api.saveMatImage(out, "undistort pic"+ (System.currentTimeMillis()-debug_Timestart  ));
             Log.i(TAG, "Succeed undistort  "  );
             return out;
         }catch (Exception e){
@@ -594,28 +604,36 @@ public class YourService extends KiboRpcService {
 
     private double[] pixelDistanceToAngle(double[] target ) {
         final String TAG = "pixelDistanceToAngle";
-        double[] ref  = {711, 455};
-        final double xDistance = target[0] - ref[0];
-        final double yDistance = ref[1] - target[1];
+//        double[] ref  = {711, 455};
+        double[] ref  = {640, 480};
+        final double xDistance = (target[0]+350) - ref[0];
+        final double yDistance = ref[1] - (target[1]+350);
 
-        // f = 0.6233 * 41.5 / 5 = 5.17339
+        // f = 0.560427 * 48.23 / 5 = 5.405878842
 
-        final double focusCamera = 5.17339;
+        final double focusCamera = 5.405878842;
+         double targetDistance = focusCamera * 5 / arTag_sizePx ;
         //final double anglePerPixel = 130 / Math.sqrt(Math.pow(NAV_MAX_WIDTH, 2) + Math.pow(NAV_MAX_HEIGHT, 2));
 
 
 
 
-        final double anglePerPixel = 0.08125;
+//        final double anglePerPixel = 0.08125;
         Log.i(TAG, "xDistance=" + xDistance);
         Log.i(TAG, "yDistance=" + yDistance);
-        Log.i(TAG, "anglePerPixel=" + anglePerPixel);
+        Log.i(TAG, "targetDistance=" + targetDistance);
 
-        double xAngle = xDistance * anglePerPixel;
-        double yAngle = yDistance * anglePerPixel;
+        double target_dis_x = ( xDistance * meter_perPx );
+        double target_dis_y = ( yDistance * meter_perPx );
+
+        double xAngle = Math.toDegrees(Math.atan(target_dis_x/targetDistance ));
+        double yAngle = Math.toDegrees(Math.atan(target_dis_y/targetDistance ));
 
         Log.i(TAG, "xAngle=" + xAngle);
         Log.i(TAG, "yAngle=" + yAngle);
+
+//        xAngle = 5;
+//        yAngle = -16;
 
         double[] out = {xAngle, yAngle};
         return out;
