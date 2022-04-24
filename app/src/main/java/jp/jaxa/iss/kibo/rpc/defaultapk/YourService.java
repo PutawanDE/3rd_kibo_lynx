@@ -58,8 +58,7 @@ public class YourService extends KiboRpcService {
     protected void runPlan1(){
         debug_Timestart = System.currentTimeMillis();
         api.startMission();
-
-
+        
         // move to point A
         check_point_A = mission_point_A();
 
@@ -73,7 +72,6 @@ public class YourService extends KiboRpcService {
 
         // shoot point 2
         check_target_2 = mission_target_2();
-
 
         mission_report();
     }
@@ -106,7 +104,6 @@ public class YourService extends KiboRpcService {
 
                 Thread.sleep(10000);
 
-
                 move_to(point_20cm, q_B);
                 api.laserControl(true);
                 api.takeTarget1Snapshot();
@@ -122,8 +119,6 @@ public class YourService extends KiboRpcService {
             Log.i(FailTAG, "mission_test =" + e);
         }
 
-
-
     }
 
     private boolean mission_point_A(){
@@ -135,7 +130,6 @@ public class YourService extends KiboRpcService {
             point_A_Succeeded = move_to(point_A, q_A);
             api.reportPoint1Arrival();
 
-            //       save the image
             Bitmap image1_A = api.getBitmapNavCam();
             api.saveBitmapImage(image1_A, "Point A Arrival");
             return point_A_Succeeded;
@@ -254,7 +248,6 @@ public class YourService extends KiboRpcService {
                     }
                     api.takeTarget2Snapshot();
 
-
 //                    if(i == 0 || i == 5){
                     if(i == 0){
 
@@ -314,7 +307,6 @@ public class YourService extends KiboRpcService {
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
 
-        //log_kinematics();
         Log.i(TAG, "Done");
         return  result.hasSucceeded();
     }
@@ -349,9 +341,11 @@ public class YourService extends KiboRpcService {
                 Log.i(TAG, "Targrt At =" + "x +350: " + target[0]+350 +"y +350: " + target[1]+350   );
 
                 double[] angleToTurn = pixelDistanceToAngle(undistort_AR_Center.get(0, 0));
+
                 Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
                 Quaternion qToTurn_Target2  = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
                 move_to(point_B_target, qToTurn_Target2);
+
                 //#######################################
 
                 if(debug && !debug_pointB_aim_snap){
@@ -382,7 +376,6 @@ public class YourService extends KiboRpcService {
         }
     }
 
-
     private Mat cam_ar_read(Mat undistortPic) {
         final String TAG = "ar_read";
         final long start = System.currentTimeMillis();
@@ -390,13 +383,11 @@ public class YourService extends KiboRpcService {
 
         List<Mat> corners = new ArrayList<>();
         Mat ids = new Mat();
-                long end = System.currentTimeMillis();
-//                Log.i(TAG, "sleep_times=" + (end-start));
-                Log.i(TAG, "Reading AR");
+        Log.i(TAG, "Reading AR");
 
         int counter = 0;
-        Mat cropPic = new Mat(undistortPic, new Rect(350, 350, 600, 360)); 
-//        Mat pic = undistortPic;
+        Mat cropPic = new Mat(undistortPic, new Rect(350, 350, 600, 360));
+
         while (ids.rows() < 4 && counter < LOOP_MAX) { // try 3 until find all 4 ids
             //############ detect Markers ############
             api.saveMatImage(cropPic, "crop for detect");
@@ -405,7 +396,7 @@ public class YourService extends KiboRpcService {
             counter++;
         }
         Log.i(TAG, "ids= " + ids.dump());
-        end = System.currentTimeMillis();
+        long end = System.currentTimeMillis();
         Log.i(TAG, "ar_read_time=" + (end-start));
 
         arTag_data[] arTag = new  arTag_data[4];
@@ -417,7 +408,6 @@ public class YourService extends KiboRpcService {
 
             for (int i = 0; i < 4; i++) {
                 arTag[i] =  getArTag_data(corners.get(i));
-                //                Log.i(TAG, "Marker Center[" + i + "](id: " + ids.get(i, 0)[0] + ")=" + markersCenter[i].dump());
 
                 Log.i(TAG, "imagePoint_x at "+ i +":"+ + (int)arTag[i].imagePoint_x + ",imagePoint_y at " + i +":"+ (int) arTag[i].imagePoint_y  );
                 ar_x_avg_px += arTag[i].size_x;
@@ -431,20 +421,9 @@ public class YourService extends KiboRpcService {
             Log.i(TAG, "Center x : " + (arTag[0].imagePoint_x + arTag[1].imagePoint_x + arTag[2].imagePoint_x + arTag[3].imagePoint_x) / 4.0f );
             Log.i(TAG, "Center y : " + (arTag[0].imagePoint_y + arTag[1].imagePoint_y + arTag[2].imagePoint_y + arTag[3].imagePoint_y ) / 4.0f );
 
-
-//            int[] rect = findRect_crop(arTag);
-//            int start_x = rect[0] + 320;
-//            int start_y = rect[1] + 240;
-//            int pic_width =  rect[2];
-//            int pic_height = rect[3] ;
-//            Log.i(TAG, "Rect" + start_x + "," + start_y +"," + pic_width   +"," + pic_height );
-//            Mat crop_findCenter = new Mat(undistortPic, new Rect(start_x, start_y,pic_width, pic_height));
-//            api.saveMatImage(crop_findCenter, "Point B crop target");
-
             Mat Center_Target = findTargetCenter_Cycle(cropPic);
             Log.i(TAG, "Targrt At =" + Center_Target.dump() );
-//        end = System.currentTimeMillis();
-//        Log.i(TAG, "ar_read+process_time=" + (end-start));
+
             return  Center_Target;
         } else {
             FAIL_to_Find_TARGET = true;
@@ -453,30 +432,6 @@ public class YourService extends KiboRpcService {
             return undistortPic;
         }
     }
-//    private int[] findRect_crop(arTag_data[] arTag){
-//        int min_x = Integer.MAX_VALUE;
-//        int max_x = -1;
-//        int min_y = Integer.MAX_VALUE;
-//        int max_y = -1;
-//
-//        for (int i = 0; i < 4; i++) {
-//            if (arTag[i].imagePoint_x < min_x) {
-//                min_x = (int) arTag[i].imagePoint_x;
-//            }
-//            if (arTag[i].imagePoint_x > max_x) {
-//                max_x = (int) arTag[i].imagePoint_x;
-//            }
-//            if (arTag[i].imagePoint_y < min_y) {
-//                min_y = (int) arTag[i].imagePoint_y;
-//            }
-//            if (arTag[i].imagePoint_y > max_y) {
-//                max_y = (int) arTag[i].imagePoint_y;
-//            }
-//        }
-//        min_y -=60;
-//        int[] rect = {min_x,min_y ,max_x - min_x,max_y - min_y};
-//        return rect;
-//        }
 
     private arTag_data getArTag_data (Mat corners) { // find center && distance
         final String TAG = "getArTag_data";
@@ -487,7 +442,6 @@ public class YourService extends KiboRpcService {
         double yUp=0;
         double yDown=0;
 
-
         double AR_xDist=0;
         double AR_yDist=0;
         xCenter = (corners.get(0, 0)[0] + corners.get(0, 1)[0] + corners.get(0, 2)[0] + corners.get(0, 3)[0]) / 4.0f;
@@ -497,8 +451,7 @@ public class YourService extends KiboRpcService {
             Log.i(TAG, "corners: " +i  + " corners_x:" +corners.get(0, i)[0] + " corners_y:" +corners.get(0, i)[1] );
         }
 
-            // ###########################
-        // find in undistort ???
+        // ########### find arTag size in undistort ################
         for(int i =0 ; i<4 ; i++){      // for X axis
             if(corners.get(0, i)[0] < xCenter){
                 xLeft +=corners.get(0, i)[0];
@@ -519,17 +472,8 @@ public class YourService extends KiboRpcService {
         return new arTag_data(AR_xDist,AR_yDist,xCenter,yCenter);
     }
     private Mat findTargetCenter_Cycle(Mat pic) {
-
-        // riw code
-        // find cycle center only in area p1 p2 p3 p4
-        //        float xCenter = (p1.x + p2.x + p3.x + p4.x) / 4.0f;
-        //        float yCenter = (p1.y + p2.y + p3.y + p4.y) / 4.0f;
-        //
         final String TAG = "findTargetCenter";
         Mat circles = new Mat();
-//        Mat gray = new Mat();
-//        Imgproc.cvtColor(pic, gray, Imgproc.COLOR_BGR2GRAY);
-//        Imgproc.medianBlur(pic, gray, 5);
 
         try {
             Imgproc.HoughCircles(pic, circles, Imgproc.HOUGH_GRADIENT, 1.0,
@@ -562,7 +506,6 @@ public class YourService extends KiboRpcService {
 
     }
 
-
     private Mat undistortPic(Mat pic) {
         final String TAG = "undistortPic";
         api.saveMatImage(pic, "Input Pic to undistort " +(System.currentTimeMillis()-debug_Timestart  ));
@@ -575,8 +518,7 @@ public class YourService extends KiboRpcService {
         final double[] DIST_COEFFSIM = {
                 -0.216247, 0.03875, -0.010157, 0.001969, 0.0
         };
-        // in -> rows:1, cols:4
-        // in -> 1xN 2 Channel
+
         Log.i(TAG, "Start");
 
         try {
@@ -585,9 +527,7 @@ public class YourService extends KiboRpcService {
 
             cameraMat.put(0, 0, CAM_MATSIM);
             distCoeffs.put(0, 0, DIST_COEFFSIM);
-        Mat out = new Mat(pic.rows(), pic.cols(), pic.type());
-
-//            Mat out = new Mat();
+            Mat out = new Mat(pic.rows(), pic.cols(), pic.type());
 
             undistort(pic, out, cameraMat,distCoeffs);
 
@@ -604,21 +544,14 @@ public class YourService extends KiboRpcService {
 
     private double[] pixelDistanceToAngle(double[] target ) {
         final String TAG = "pixelDistanceToAngle";
-//        double[] ref  = {711, 455};
         double[] ref  = {640, 480};
         final double xDistance = (target[0]+350) - ref[0];
         final double yDistance = ref[1] - (target[1]+350);
 
-        // f = 0.560427 * 48.23 / 5 = 5.405878842
-
+        // focusCamera = 0.560427 * 48.23 / 5 = 5.405878842
         final double focusCamera = 5.405878842;
          double targetDistance = focusCamera * 5 / arTag_sizePx ;
-        //final double anglePerPixel = 130 / Math.sqrt(Math.pow(NAV_MAX_WIDTH, 2) + Math.pow(NAV_MAX_HEIGHT, 2));
 
-
-
-
-//        final double anglePerPixel = 0.08125;
         Log.i(TAG, "xDistance=" + xDistance);
         Log.i(TAG, "yDistance=" + yDistance);
         Log.i(TAG, "targetDistance=" + targetDistance);
@@ -632,30 +565,8 @@ public class YourService extends KiboRpcService {
         Log.i(TAG, "xAngle=" + xAngle);
         Log.i(TAG, "yAngle=" + yAngle);
 
-//        xAngle = 5;
-//        yAngle = -16;
-
         double[] out = {xAngle, yAngle};
         return out;
-    }
-
-    private  double getkibo_distanceformwall (){
-
-        return  0;
-    }
-
-    private double find_horizon_angle(double d_h_laser_center , double  d_h_kibo_center){
-        double d_laser_center = d_h_laser_center;
-        double d_kibo_center = d_h_kibo_center;
-        double deg_h = toDegrees(atan(d_laser_center/d_kibo_center));
-        return deg_h;
-    }
-    private double find_vertical_angle(double d_v_laser_center , double  d_v_kibo_center){
-        double d_laser_center = d_v_laser_center;
-        double d_kibo_center = d_v_kibo_center;
-        double horizon_angel = atan(d_laser_center/d_kibo_center);
-
-        return horizon_angel;
     }
 
     private Quaternion eulerAngleToQuaternion(double xAngle, double yAngle, double zAngle) {
@@ -679,8 +590,6 @@ public class YourService extends KiboRpcService {
         Log.i(TAG, " x:" + x + " y:" + y + " z:" + z + " w:" + w);
         return new Quaternion((float)x, (float) y, (float)z, (float)w);
     }
-
-
 
     private Quaternion combineQuaternion(Quaternion newOrientation, Quaternion oldOrientation) {
         String TAG = "combineQuaternion";
