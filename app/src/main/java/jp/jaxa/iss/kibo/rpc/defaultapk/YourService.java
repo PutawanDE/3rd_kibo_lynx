@@ -45,7 +45,6 @@ public class YourService extends KiboRpcService {
     boolean It_realworld = false;
     final String FailTAG = "Fail_method";
 
-
     boolean debug = true;
     boolean debug_pointB_unaim_snap = false;
     boolean debug_pointB_aim_snap = false;
@@ -139,7 +138,6 @@ public class YourService extends KiboRpcService {
         }
     }
 
-
     private boolean mission_target_1(){
          try {
              boolean aim_Succeed = false;
@@ -150,11 +148,6 @@ public class YourService extends KiboRpcService {
                  aim_Succeed = aim_shoot("A");
                  aim_try++;
              }while (!aim_Succeed && aim_try < LOOP_MAX );
-
-
-            if(debug){
-                aim_Succeed = true;
-            }
 
             if(aim_Succeed) {
                 //#######################
@@ -176,7 +169,6 @@ public class YourService extends KiboRpcService {
                 return  false;
             }
 
-
          }catch (Exception e){
              Log.i(FailTAG, "mission_target_1 =" + e);
              return  false;
@@ -184,14 +176,13 @@ public class YourService extends KiboRpcService {
 
     }
 
-
     private boolean mission_point_B(){
         final Quaternion q_B = new Quaternion(0f, 0f, -0.707f, 0.707f);
 
         final Point point_B_0 = new Point(10.876214285714285, -8.5, 4.97063);
         final Point point_B_1 = new Point(11.0067, -9.44819, 5.186407142857143);
-//        final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);
         final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);
+
         boolean point_B_prime_Succeeded;
         try {
             move_to(point_B_0,q_B);
@@ -215,7 +206,6 @@ public class YourService extends KiboRpcService {
         try {
             boolean aim_Succeed = false;
             boolean on_Laser = false;
-
 
             for (int i = 0 ; i < 10 ; i++){
 
@@ -345,7 +335,7 @@ public class YourService extends KiboRpcService {
                 Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
                 Quaternion qToTurn_Target2  = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
                 move_to(point_B_target, qToTurn_Target2);
-
+                Log.i(TAG, "aim_shoot Succeed"   );
                 //#######################################
 
                 if(debug && !debug_pointB_aim_snap){
@@ -441,15 +431,15 @@ public class YourService extends KiboRpcService {
         double xRight=0;
         double yUp=0;
         double yDown=0;
+        double AR_xDist;
+        double AR_yDist;
 
-        double AR_xDist=0;
-        double AR_yDist=0;
-        xCenter = (corners.get(0, 0)[0] + corners.get(0, 1)[0] + corners.get(0, 2)[0] + corners.get(0, 3)[0]) / 4.0f;
-
-        yCenter = (corners.get(0, 0)[1] + corners.get(0, 1)[1] + corners.get(0, 2)[1] + corners.get(0, 3)[1]) / 4.0f;
         for(int i =0 ; i<4 ; i++) {
             Log.i(TAG, "corners: " +i  + " corners_x:" +corners.get(0, i)[0] + " corners_y:" +corners.get(0, i)[1] );
         }
+
+        xCenter = (corners.get(0, 0)[0] + corners.get(0, 1)[0] + corners.get(0, 2)[0] + corners.get(0, 3)[0]) / 4.0f;
+        yCenter = (corners.get(0, 0)[1] + corners.get(0, 1)[1] + corners.get(0, 2)[1] + corners.get(0, 3)[1]) / 4.0f;
 
         // ########### find arTag size in undistort ################
         for(int i =0 ; i<4 ; i++){      // for X axis
@@ -471,6 +461,7 @@ public class YourService extends KiboRpcService {
         // ###########################
         return new arTag_data(AR_xDist,AR_yDist,xCenter,yCenter);
     }
+
     private Mat findTargetCenter_Cycle(Mat pic) {
         final String TAG = "findTargetCenter";
         Mat circles = new Mat();
@@ -540,8 +531,7 @@ public class YourService extends KiboRpcService {
             return pic;
         }
     }
-
-
+    
     private double[] pixelDistanceToAngle(double[] target ) {
         final String TAG = "pixelDistanceToAngle";
         double[] ref  = {640, 480};
