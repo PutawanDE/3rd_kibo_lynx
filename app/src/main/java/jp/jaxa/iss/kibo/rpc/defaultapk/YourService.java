@@ -322,8 +322,9 @@ public class YourService extends KiboRpcService {
                 }
 
 //                final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);  // original
-//                final Point point_B_target = new Point(11.1752, -9.92284, 5.29881);  // + 0.0994
-                final Point point_B_target = new Point(11.1352, -9.92284, 5.29881);   // +0.0994 + 0.04
+//                final Point point_B_target = new Point(11.1752, -9.92284, 5.29881);  //  X : -0.0994
+//                final Point point_B_target = new Point(11.1352, -9.92284, 5.29881);   // X : -0.0994 - 0.04
+                final Point point_B_target = new Point(11.1352, -9.92284, 5.30881);   // X : -0.0994 - 0.04  , Z + 0.01
                 //#######################################
                 // FIX Quaternion to shoot target2
                 Mat  undistort_AR_Center = cam_ar_read(undistort_Cam);
@@ -531,13 +532,14 @@ public class YourService extends KiboRpcService {
             return pic;
         }
     }
-    
+
     private double[] pixelDistanceToAngle(double[] target ) {
         final String TAG = "pixelDistanceToAngle";
         double[] ref  = {640, 480};
         final double xDistance = (target[0]+350) - ref[0];
         final double yDistance = ref[1] - (target[1]+350);
 
+        // focusCamera = distance * Pixel / realSize
         // focusCamera = 0.560427 * 48.23 / 5 = 5.405878842
         final double focusCamera = 5.405878842;
          double targetDistance = focusCamera * 5 / arTag_sizePx ;
