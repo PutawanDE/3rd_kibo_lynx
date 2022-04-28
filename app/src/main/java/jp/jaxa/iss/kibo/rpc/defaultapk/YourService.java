@@ -329,7 +329,7 @@ public class YourService extends KiboRpcService {
                 // FIX Quaternion to shoot target2
                 Mat  undistort_AR_Center = cam_ar_read(undistort_Cam);
                 double[] target = undistort_AR_Center.get(0, 0);
-                Log.i(TAG, "Targrt At =" + "x +350: " + target[0]+350 +"y +350: " + target[1]+350   );
+                Log.i(TAG, "Targrt At =" + "x +350: " + (target[0]+350) +"y +350: " + (target[1]+350)   );
 
                 double[] angleToTurn = pixelDistanceToAngle(undistort_AR_Center.get(0, 0));
 
@@ -501,15 +501,27 @@ public class YourService extends KiboRpcService {
     private Mat undistortPic(Mat pic) {
         final String TAG = "undistortPic";
         api.saveMatImage(pic, "Input Pic to undistort " +(System.currentTimeMillis()-debug_Timestart  ));
+      //old
+//        final double[] CAM_MATSIM = {
+//                567.229305, 0.0, 659.077221,
+//                0.0, 574.192915, 517.007571,
+//                0.0, 0.0, 1.0
+//        };
+//
+//        final double[] DIST_COEFFSIM = {
+//                -0.216247, 0.03875, -0.010157, 0.001969, 0.0
+//        };
+        //new
         final double[] CAM_MATSIM = {
-                567.229305, 0.0, 659.077221,
-                0.0, 574.192915, 517.007571,
+                523.105750, 0.0, 635.434258,
+                0.0, 534.765913, 500.335102,
                 0.0, 0.0, 1.0
         };
 
         final double[] DIST_COEFFSIM = {
-                -0.216247, 0.03875, -0.010157, 0.001969, 0.0
+                -0.164787, 0.020375, -0.001572, -0.000369, 0.0
         };
+
 
         Log.i(TAG, "Start");
 
