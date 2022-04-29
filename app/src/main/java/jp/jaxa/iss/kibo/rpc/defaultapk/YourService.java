@@ -7,6 +7,7 @@ import org.opencv.aruco.Dictionary;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
@@ -87,10 +88,11 @@ public class YourService extends KiboRpcService {
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
         cameraMat.put(0, 0, CAM_MATSIM);
         distCoeffs.put(0, 0, DIST_COEFFSIM);
+        int markersCount = corners.size();
 
         Mat tvec = new Mat();
         Mat rvec = new Mat();
-        Mat arPos = new Mat();
+        Mat arPos = new Mat(markersCount, 1, CvType.CV_32FC3, Scalar.all(0));
 
         try {
             Aruco.estimatePoseSingleMarkers(corners,
