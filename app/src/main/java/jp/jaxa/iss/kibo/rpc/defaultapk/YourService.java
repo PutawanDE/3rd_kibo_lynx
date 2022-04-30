@@ -40,6 +40,10 @@ public class YourService extends KiboRpcService {
             0.1177, -0.0422, -0.0826
     };
 
+    final double[] LASER_POS = {
+            0.1302, 0.0572, -0.1111
+    };
+
     private void move_to(double x, double y, double z, Quaternion q) {
         final Point p = new Point(x, y, z);
 
@@ -51,6 +55,17 @@ public class YourService extends KiboRpcService {
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
 
+    }
+
+    private void relative_move_to(double x, double y, double z, Quaternion q) {
+        final Point p = new Point(x, y, z);
+        int counter = 0;
+        Result result;
+
+        do {
+            result = api.relativeMoveTo(p, q, true);
+            counter++;
+        } while (!result.hasSucceeded() && (counter < LOOP_MAX));
     }
 
     private List<Mat> readAr(Mat img) {
@@ -242,10 +257,52 @@ public class YourService extends KiboRpcService {
 //
 //        move_to(11.2746, -9.92284, 5.29881, qToTurn);
 
-        estimateMarkerPos(readAr(api.getMatNavCam()));
+        Mat arMarkerPos = estimateMarkerPos(readAr(api.getMatNavCam()));
+        double[] marker13Pos = arMarkerPos.get(0, 0);
+        double[] marker14Pos = arMarkerPos.get(1, 0);
+        double[] marker12Pos = arMarkerPos.get(2, 0);
+        double[] marker11Pos = arMarkerPos.get(3, 0);
 
+//        relative_move_to(0, marker13Pos[1] - LASER_POS[1], marker13Pos[2] - LASER_POS[2],
+//                quaternion);
+//        api.laserControl(true);
+//        api.saveBitmapImage(api.getBitmapNavCam(), "Shoot marker 13");
+//        relative_move_to(0, -(marker13Pos[1] - LASER_POS[1]), -(marker13Pos[2] - LASER_POS[2]),
+//                quaternion);
+//        api.laserControl(false);
+//
+//        relative_move_to(0, marker14Pos[1] - LASER_POS[1], marker14Pos[2] - LASER_POS[2],
+//                quaternion);
+//        api.laserControl(true);
+//        api.saveBitmapImage(api.getBitmapNavCam(), "Shoot marker 14");
+//        relative_move_to(0, -(marker14Pos[1] - LASER_POS[1]), -(marker14Pos[2] - LASER_POS[2]),
+//                quaternion);
+//        api.laserControl(false);
+//
+//        relative_move_to(0, marker12Pos[1] - LASER_POS[1], marker12Pos[2] - LASER_POS[2],
+//                quaternion);
+//        api.laserControl(true);
+//            api.saveBitmapImage(api.getBitmapNavCam(), "Shoot marker 12");
+//        relative_move_to(0, -(marker12Pos[1] - LASER_POS[1]), -(marker12Pos[2] - LASER_POS[2]),
+//                quaternion);
+
+        relative_move_to(marker11Pos[1] - LASER_POS[1], 0, marker11Pos[2] - LASER_POS[2],
+                quaternion);
         api.laserControl(true);
+        api.saveBitmapImage(api.getBitmapNavCam(), "Shoot marker 11");
         api.takeTarget2Snapshot();
+        relative_move_to(-(marker11Pos[1] - LASER_POS[1]), 0, -(marker11Pos[2] - LASER_POS[2]),
+                quaternion);
+
+        relative_move_to(marker12Pos[1] - LASER_POS[1], 0, marker12Pos[2] - LASER_POS[2],
+                quaternion);
+        api.laserControl(true);
+        api.saveBitmapImage(api.getBitmapNavCam(), "Shoot marker 12");
+        api.laserControl(false);
+        relative_move_to(-(marker12Pos[1] - LASER_POS[1]), 0, -(marker12Pos[2] - LASER_POS[2]),
+                quaternion);
+//        api.laserControl(true);
+//        api.takeTarget2Snapshot();
 
         // move to goal
         move_to(11.0067, -9.44819, 5.1722, quaternion);
