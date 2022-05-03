@@ -55,30 +55,10 @@ public class YourService extends KiboRpcService {
     final double[] marker13_point = {0, target2_marker_y_dist, 0};
 
     final double[][] markersPoint = {
-            marker13_point, marker14_point, marker12_point, marker11_point
+            marker12_point, marker11_point, marker14_point, marker13_point
     };
 
-    final double MARKER_LENGTH = 0.05;
-
-    private List<Mat> initializeTarget2AR_points() {
-        List<Mat> markerObjPoints = new ArrayList<>();
-        int markersCnt = 4;
-        for (int i = 0; i < markersCnt; i++) {
-            Point3 topLeft = new Point3(markersPoint[i]);
-            Point3 topRight = new Point3(markersPoint[i][0] + MARKER_LENGTH,
-                    markersPoint[i][1], markersPoint[i][2]);
-            Point3 bottomRight = new Point3(markersPoint[i][0] + MARKER_LENGTH,
-                    markersPoint[i][1] + MARKER_LENGTH, markersPoint[i][2]);
-            Point3 bottomLeft = new Point3(markersPoint[i][0],
-                    markersPoint[i][1] + MARKER_LENGTH, markersPoint[i][2]);
-
-            MatOfPoint3f singleMarkerObjPoint = new MatOfPoint3f(topLeft, topRight, bottomRight,
-                    bottomLeft);
-            markerObjPoints.add(singleMarkerObjPoint);
-        }
-        return markerObjPoints;
-    }
-
+    final float MARKER_LENGTH = 0.05f;
 
     private void move_to(double x, double y, double z, Quaternion q) {
         final Point p = new Point(x, y, z);
@@ -104,10 +84,7 @@ public class YourService extends KiboRpcService {
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
     }
 
-    //FIXME reading order of aruco is not consistent. Need to specify separate IDs for reading and
-    //     board pose estimation
-
-    private Mat estimateBoardPos(Mat img) {
+    private double[] estimateBoardPos(Mat img) {
         final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
         final String TAG = "estimateBoardPos";
         api.saveMatImage(img, "ReadAr.png");
@@ -117,47 +94,87 @@ public class YourService extends KiboRpcService {
         distCoeffs.put(0, 0, DIST_COEFFSIM);
 
         List<Mat> corners = new ArrayList<>();
-        Mat ids = new Mat();
+        Mat detectedIDs = new Mat();
         Mat tvec = new Mat();
         Mat rvec = new Mat();
+        double[] boardPos = new double[3];
 
         try {
             Log.i(TAG, "Reading AR tags");
             int counter = 0;
             do {
-                Aruco.detectMarkers(img, ARUCO_DICT, corners, ids);
+                Aruco.detectMarkers(img, ARUCO_DICT, corners, detectedIDs);
                 counter++;
                 Log.i(TAG, "Reading AR tags Attempt#" + counter);
             } while (corners.size() != 4 && counter < LOOP_MAX);
 
             String status = corners.size() == 4 ? "Success" : "Fail";
             Log.i(TAG, "Reading AR tags " + status);
-            Log.i(TAG, "AR ids: " + ids.dump());
+            Log.i(TAG, "AR ids: " + detectedIDs.dump());
             for (Mat c : corners) {
                 Log.i(TAG, "AR pos: " + c.dump());
             }
 
-            Mat detectedMarkerImg = img.clone();
+            Mat detectedMarkerImg = new Mat();
+            Imgproc.cvtColor(img, detectedMarkerImg, Imgproc.COLOR_GRAY2RGB);
             Aruco.drawDetectedMarkers(detectedMarkerImg, corners);
             api.saveMatImage(detectedMarkerImg, "ArucoDetectedMarker.png");
 
-            Board board = Board.create(initializeTarget2AR_points(), ARUCO_DICT, ids);
+            Mat boardIDs = new Mat(4, 1, CvType.CV_8U);
+            boardIDs.put(0, 0, 12);
+            boardIDs.put(1, 0, 11);
+            boardIDs.put(2, 0, 14);
+            boardIDs.put(3, 0, 13);
+
+            Board board = Board.create(initializeTarget2AR_points(), ARUCO_DICT, boardIDs);
             for (MatOfPoint3f o : board.get_objPoints()) {
                 Log.i(TAG, "Marker object points: " + o.dump());
             }
 
-            Aruco.estimatePoseBoard(corners, ids, board, cameraMat, distCoeffs, rvec, tvec);
+            Aruco.estimatePoseBoard(corners, detectedIDs, board, cameraMat, distCoeffs, rvec, tvec);
             Log.i(TAG, "Board tvec: " + tvec.dump());
             Log.i(TAG, "Board rvec: " + rvec.dump());
 
-            Aruco.drawAxis(img, cameraMat, distCoeffs, rvec, tvec, (float)MARKER_LENGTH);
-            api.saveMatImage(img, "ArucoBoardPose.png");
+            Aruco.drawAxis(detectedMarkerImg, cameraMat, distCoeffs, rvec, tvec, MARKER_LENGTH);
+            api.saveMatImage(detectedMarkerImg, "ArucoBoardPose.png");
+
+            double tvec_x = tvec.get(0, 0)[0];
+            double tvec_y = tvec.get(1, 0)[0];
+            double tvec_z = tvec.get(2, 0)[0];
+
+            boardPos = new double[]{
+                    tvec_z + CAM_POS[0],
+                    tvec_x + CAM_POS[1],
+                    tvec_y + CAM_POS[2],
+            };
+
+            Log.i(TAG, "Board position relative to Astrobee: {" +
+                    boardPos[0] + ", " + boardPos[1] + ", " + boardPos[2] + "}");
         } catch (Exception e) {
             e.printStackTrace();
             Log.i(TAG, "--Fail: " + e.toString());
         }
 
-        return tvec;
+        return boardPos;
+    }
+
+    private List<Mat> initializeTarget2AR_points() {
+        List<Mat> markerObjPoints = new ArrayList<>();
+        int markersCnt = 4;
+        for (int i = 0; i < markersCnt; i++) {
+            Point3 topLeft = new Point3(markersPoint[i]);
+            Point3 topRight = new Point3(markersPoint[i][0] + MARKER_LENGTH,
+                    markersPoint[i][1], markersPoint[i][2]);
+            Point3 bottomRight = new Point3(markersPoint[i][0] + MARKER_LENGTH,
+                    markersPoint[i][1] + MARKER_LENGTH, markersPoint[i][2]);
+            Point3 bottomLeft = new Point3(markersPoint[i][0],
+                    markersPoint[i][1] + MARKER_LENGTH, markersPoint[i][2]);
+
+            MatOfPoint3f singleMarkerObjPoint = new MatOfPoint3f(topLeft, topRight, bottomRight,
+                    bottomLeft);
+            markerObjPoints.add(singleMarkerObjPoint);
+        }
+        return markerObjPoints;
     }
 
     private Mat find_circle() {
@@ -267,7 +284,7 @@ public class YourService extends KiboRpcService {
         quaternion = new Quaternion(0f, 0f, -0.707f, 0.707f);
         move_to(10.876214285714285, -8.5, 4.97063, quaternion);
         move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
-        move_to(11.2746, -9.92284, 5.29881, quaternion);
+        move_to(11.2746, -10.0, 5.29881, quaternion);
 
         // shoot laser
         final Mat target = find_circle();
@@ -279,9 +296,13 @@ public class YourService extends KiboRpcService {
 //
 //        move_to(11.2746, -9.92284, 5.29881, qToTurn);
 
-        Mat arBoardPos = estimateBoardPos(api.getMatNavCam());
+        double[] arBoardPos = estimateBoardPos(api.getMatNavCam());
+
+        relative_move_to(arBoardPos[1] - LASER_POS[1], 0, arBoardPos[2] - LASER_POS[2],
+                quaternion);
 
         api.laserControl(true);
+        api.saveMatImage(api.getMatNavCam(), "ShootLaser.png");
         api.takeTarget2Snapshot();
 
         // move to goal
