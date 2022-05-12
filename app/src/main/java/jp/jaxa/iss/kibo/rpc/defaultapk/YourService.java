@@ -734,7 +734,7 @@ public class YourService extends KiboRpcService {
         double X_dis = Math.sqrt((ol2t_dy * ol2t_dy) + (orl2t_dy * orl2t_dy) - 2 * ol2t_dy * orl2t_dy * Math.cos(Math.toRadians(A_angel)));
         Log.i(TAG, "X_dis= " + X_dis);
 
-        verticalAngle = (Math.toDegrees(Math.asin( (X_dis / 2) / laser_oblique_x ))) * 2 * -1;
+        verticalAngle = (Math.toDegrees(Math.asin( (X_dis / 2) / laser_oblique_y ))) * 2 * -1;
 
         return  verticalAngle;
     }
