@@ -53,6 +53,22 @@ public class YourService extends KiboRpcService {
     double arTag_sizePx= -1;
     double meter_perPx= -1;
 
+    double laser_width  =  0.0572;
+    double laser_depth  =  0.1302;
+    double laser_oblique_x = 0.14221;
+    double laser_oblique_y = 0.171159;
+    double laser_high = 0.1111;
+
+    double cam_depth = 0.1177;
+    double cam_width  = 0.0422;
+    double cam_high  = 0.0826;
+
+
+    final Point point_A_to_shoot_target1 = new Point(10.71, -7.811971 , 4.48);
+    final Point point_B_to_shoot_target2 = new Point(11.2746, -9.92284, 5.29881); // original
+//    final Point point_B_to_shoot_target2 = new Point(11.2746 + 0.089, -9.92284, 5.29881 + 0.165);  // move right 8.9cm down 16.cm    Point(11.3636, -9.92284, 5.46381);
+    final Point point_Goal_target = new Point(11.2746, -7.89178, 4.96538);
+
     @Override
     protected void runPlan1(){
         debug_Timestart = System.currentTimeMillis();
@@ -181,16 +197,12 @@ public class YourService extends KiboRpcService {
 
         final Point point_B_0 = new Point(10.876214285714285, -8.5, 4.97063);
         final Point point_B_1 = new Point(11.0067, -9.44819, 5.186407142857143);
-        final Point point_B_target = new Point(11.2746, -9.92284, 5.29881); // original
-
-
-//        final Point point_B_target = new Point(11.2746 - 0.2, -9.92284, 5.29881); // move - 20cm
 
         boolean point_B_prime_Succeeded;
         try {
             move_to(point_B_0,q_B);
             move_to(point_B_1,q_B);
-            point_B_prime_Succeeded = move_to(point_B_target,  q_B);
+            point_B_prime_Succeeded = move_to(point_B_to_shoot_target2,  q_B);
 
             //       save the image
             Bitmap image1_B = api.getBitmapNavCam();
@@ -265,13 +277,12 @@ public class YourService extends KiboRpcService {
 
         final Point point_Goal_0 = new Point(11.0067, -9.44819, 5.1722);
         final Point point_Goal_1 = new Point(11.073773469387755, -8.5, 4.97063);
-        final Point point_Goal_2 = new Point(11.2746, -7.89178, 4.96538);
 
         boolean cleared;
 
         move_to(point_Goal_0,q_Goal);
         move_to(point_Goal_1,q_Goal);
-        move_to(point_Goal_2,q_Goal);
+        move_to(point_Goal_target,q_Goal);
 
         if(debug){
             Boolean[] Mission_State = new  Boolean[]{check_point_A,check_target_1,check_point_B,check_target_2};
@@ -293,20 +304,42 @@ public class YourService extends KiboRpcService {
         int counter = 0;
         Result result;
 
-        Log.i(TAG, "Start");
+        Log.i(TAG, "Start move to p:"  +p +", q:" + q);
 
         do {
             result = api.moveTo(p, q, true);
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
 
-        Log.i(TAG, "Done");
+        Log.i(TAG, "Done move to p:"  +p +", q:" + q);
+        return  result.hasSucceeded();
+    }
+
+    private boolean turn_to(Quaternion q) {
+        final String TAG = "move_to";
+        final Point p_dormant = new Point(0, 0, 0);
+
+        int counter = 0;
+        Result result;
+
+        Log.i(TAG, "Start turn to p:"  + p_dormant +", q:" + q);
+
+        do {
+            result = api.relativeMoveTo(p_dormant, q, true);
+            counter++;
+        } while (!result.hasSucceeded() && (counter < LOOP_MAX));
+
+        Log.i(TAG, "Done turn to p:"  +p_dormant +", q:" + q);
         return  result.hasSucceeded();
     }
 
     private boolean  aim_shoot(String targetType){
         final String TAG = "aim_shoot";
+        boolean enable_aim = true;
         try {
+            Mat buffer =  api.getMatNavCam();
+            api.saveMatImage(buffer,  (System.currentTimeMillis()-debug_Timestart )+" Point B buffer.png" );
+
             Thread.sleep(1000);
             Mat pic_cam =  api.getMatNavCam();
             Thread.sleep(1000);
@@ -314,8 +347,8 @@ public class YourService extends KiboRpcService {
 
             if (targetType.equals("A")){
                 Quaternion q_target1 = new Quaternion(0f, 0.707f, 0f, 0.707f);
-                Point point_to_shoot_target1 = new Point(10.71, -7.811971 , 4.48);
-                move_to(point_to_shoot_target1, q_target1);
+//                Point point_to_shoot_target1 = new Point(10.71, -7.811971 , 4.48);
+                move_to(point_A_to_shoot_target1, q_target1);
             }
             else if(targetType.equals("B")){
 
@@ -324,9 +357,6 @@ public class YourService extends KiboRpcService {
                     debug_pointB_unaim_snap = true;
                 }
 
-//                final Point point_B_target = new Point(11.2746, -9.92284, 5.29881);  // original
-//                final Point point_B_target = new Point(11.1752, -9.92284, 5.29881);  //  X : -0.0994
-//                final Point point_B_target = new Point(11.1352, -9.92284, 5.29881);   // X : -0.0994 - 0.04 (0.1394)
 //                final Point point_B_target = new Point(11.1352, -9.92284, 5.30881);   // X : -0.0994 - 0.04  , Z + 0.01
                 //#######################################
                 // FIX Quaternion to shoot target2
@@ -337,20 +367,27 @@ public class YourService extends KiboRpcService {
 
                 double[] angleToTurn = pixelDistanceToAngle(undistort_AR_Center.get(0, 0));
 
-                double[] moveKibo = find_DistanceToMove(angleToTurn);
-                Point point_B_target = new Point(11.2746  , -9.92284, 5.29881 + moveKibo[1]);  // original
-                
-//                Point point_B_target = new Point(11.2746 - 0.2, -9.92284, 5.29881 + moveKibo[1]);  // move - 20cm
+//                double[] moveKibo = find_DistanceToMove(angleToTurn);
+//                Point point_B_target = new Point(11.2746  , -9.92284, 5.29881 );  // original
+//                Point point_B_target = new Point(11.2746  , -9.92284, 5.29881 + moveKibo[1]);  // fix up-down
 
-                Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
-                Quaternion qToTurn_Target2  = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
-                move_to(point_B_target, qToTurn_Target2);
-                Log.i(TAG, "aim_shoot Succeed"   );
-                //#######################################
+
+                Quaternion qToTurn_Target2 = new Quaternion(0, 0, -0.707f, 0.707f);
+                if(enable_aim) {
+                    Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
+                    qToTurn_Target2 = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
+                }
+                    turn_to(qToTurn_Target2);
+                    Log.i(TAG, "aim_shoot Succeed");
+                    //#######################################
 
                 if(debug && !debug_pointB_aim_snap){
-                    Mat undistort_B_Aim = undistortPic(api.getMatNavCam());
-                    api.saveMatImage(undistort_B_Aim,  (System.currentTimeMillis()-debug_Timestart ) + " Point B aim.png");
+                    Thread.sleep(1000);
+                    Mat pic_aim =  api.getMatNavCam();
+                    Thread.sleep(1000);
+                    Mat undistort_B_Aim = undistortPic(pic_aim);
+                    api.saveMatImage(pic_aim,  (System.currentTimeMillis()-debug_Timestart ) + " Point B aim raw.png");
+                    api.saveMatImage(undistort_B_Aim,  (System.currentTimeMillis()-debug_Timestart ) + " Point B aim undis.png");
                     debug_pointB_aim_snap = true;
                 }
             }else {
@@ -365,7 +402,7 @@ public class YourService extends KiboRpcService {
         }
     }
 
-    class arTag_data {
+    static class arTag_data {
         double size_x, size_y, imagePoint_x, imagePoint_y;
 
         arTag_data(double size_x, double size_y, double imagePoint_x, double imagePoint_y) {
@@ -474,7 +511,7 @@ public class YourService extends KiboRpcService {
         AR_xDist = (xRight-xLeft)/2;
         AR_yDist = (yDown-yUp)/2;
         // ###########################
-        return new arTag_data(AR_xDist,AR_yDist,xCenter,yCenter);
+        return new arTag_data(AR_xDist, AR_yDist, xCenter, yCenter);
     }
 
     private Mat findTargetCenter_Cycle(Mat pic) {
@@ -569,105 +606,138 @@ public class YourService extends KiboRpcService {
 
     private double[] pixelDistanceToAngle(double[] target ) {
         final String TAG = "pixelDistanceToAngle";
+        Log.i(TAG, "================== pixelDistanceToAngle ==================");
         double[] ref  = {640, 480};
         final double xDistance = (target[0]+350) - ref[0];
         final double yDistance = ref[1] - (target[1]+350);
-        double laser_width  =  0.0572;
-        double laser_depth  =  0.1302;
-        double laser_oblique = 0.14221;
 
-        // focusCamera = distance * Pixel / realSize
-        // focusCamera = 0.560427 * 48.23 / 5 = 5.405878842
-
-//        final double focusCamera = 5.405878842;
-
-        final double focusCamera = 5.34765913;
-        double cam2walldis = focusCamera * 5 / arTag_sizePx ;
-
-
+        final double cam2walldis = 0.54046 ; // focusCamera = 4.161542
 
         Log.i(TAG, "xDistance=" + xDistance);
         Log.i(TAG, "yDistance=" + yDistance);
         Log.i(TAG, "cam2walldis=" + cam2walldis);
 
-        double k2w =  cam2walldis + 0.1177;
-        double l2w =  cam2walldis - 0.0125;
+        double k2w =  cam2walldis + cam_depth;
+        double l2w =  cam2walldis - ( laser_depth - cam_depth );
+        Log.i(TAG, "k2w = " + k2w);
+        Log.i(TAG, "l2w = " + l2w);
+
+
 
         double cam_target_dis_x = ( xDistance * meter_perPx ) ;
         double cam_target_dis_y = ( yDistance * meter_perPx );
         Log.i(TAG, "cam_target_dis (x)= " + cam_target_dis_x);
         Log.i(TAG, "cam_target_dis (y)= " + cam_target_dis_y);
 
-        double k2t_x = cam_target_dis_x - 0.0422;
-        double l2t_x = cam_target_dis_x - 0.0994;
+        //########  horizonAngle axis #######
+        double horizonAngle = horizonAngle_axis(cam_target_dis_x,k2w,l2w);
+        Log.i(TAG, "horizonAngle(x)= " + horizonAngle);
+       //###################################
+
+        //########  verticalAngle axis #######
+        double verticalAngle = verticalAngle_axis(cam_target_dis_y,k2w,l2w);
+        Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
+        //###################################
+
+        double[] out = {horizonAngle, verticalAngle};
+        Log.i(TAG, "Angle(x,y)= " + out);
+        Log.i(TAG, "================== Done ==================");
+        return out;
+    }
+
+    private double horizonAngle_axis(double cam_target_dis_x , double k2w , double l2w){
+        final String TAG = "horizonAngle_axis";
+        double horizonAngle = 0;
+
+        double k2t_x = cam_target_dis_x - cam_width;
+        double l2t_x = cam_target_dis_x -  ( cam_width +  laser_width );
         Log.i(TAG, "kibo 2 target _x(x)= " + k2t_x);
         Log.i(TAG, "laser 2 target _x(x)= " + l2t_x);
 
-//
-//        double horizonAngle = Math.toDegrees(Math.atan(target_dis_x/targetDistance ));
-        double verticalAngle = Math.toDegrees(Math.atan(cam_target_dis_y/cam2walldis ));
+        double ok2t_dx = Math.sqrt((k2w * k2w) + (k2t_x * k2t_x));
+        Log.i(TAG, "ok2t_dx= " + ok2t_dx);
+        double ol2t_dx = Math.sqrt((l2w * l2w) + (l2t_x * l2t_x));
+        Log.i(TAG, "ol2t_dx= " + ol2t_dx);
+        double orl2t_dx = Math.sqrt( Math.abs((ok2t_dx * ok2t_dx) - (laser_width * laser_width)) ) - laser_depth;
+        Log.i(TAG, "orl2t_dx= " + orl2t_dx);
 
-//        double target_dis_x =  0.0422 - ( xDistance * meter_perPx )  ;
-        double horizonAngle = 0;
+        double cosVal_A_R = ((orl2t_dx * orl2t_dx) + (ok2t_dx * ok2t_dx) - (laser_oblique_x * laser_oblique_x)) / (2 * orl2t_dx * ok2t_dx);
+        Log.i(TAG, "cosVal_A_R= " + cosVal_A_R);
 
-        //TODO
+        double A_R = Math.toDegrees(Math.acos(cosVal_A_R));
+        Log.i(TAG, "A_R (x)= " + A_R);
 
-       if(l2t_x > 0) {
-           double ok2t_dx = Math.sqrt((k2w * k2w) + (k2t_x * k2t_x));
-           Log.i(TAG, "ok2t_dx= " + ok2t_dx);
-           double ol2t_dx = Math.sqrt((l2w * l2w) + (l2t_x * l2t_x));
-           Log.i(TAG, "ol2t_dx= " + ol2t_dx);
-           double orl2t_dx = Math.sqrt((ok2t_dx * ok2t_dx) - (laser_width * laser_width)) - laser_depth;
-           Log.i(TAG, "orl2t_dx= " + orl2t_dx);
+        double A_K = Math.toDegrees(Math.atan(k2w / Math.abs(k2t_x) ));
+        Log.i(TAG, "A_K (x)= " + A_K);
 
-           double R_D = (orl2t_dx * orl2t_dx + ok2t_dx * ok2t_dx - laser_oblique * laser_oblique) / (2 * orl2t_dx * ok2t_dx);
-           Log.i(TAG, "R_D= " + R_D);
-
-           double A_R = Math.toDegrees(Math.acos(R_D));
-           Log.i(TAG, "A_R= " + A_R);
-           double A_L = Math.toDegrees(Math.atan(l2w / l2t_x));
-           Log.i(TAG, "A_L= " + A_L);
-           double A_K = Math.toDegrees(Math.atan(k2w / k2t_x));
-           Log.i(TAG, "A_K= " + A_K);
-
-           double X_angel = A_R - (A_L - A_K);
-           Log.i(TAG, "X_angel= " + X_angel);
-
-           double Y = Math.sqrt((ol2t_dx * ol2t_dx) + (orl2t_dx * orl2t_dx) - 2 * ol2t_dx * orl2t_dx * Math.cos(Math.toRadians(X_angel)));
-           Log.i(TAG, "Y= " + Y);
-
-           horizonAngle = (Math.toDegrees(Math.asin((Y / 2) / laser_oblique))) * 2;
-       }else if(l2t_x < 0){
-           //TODO
-       }
+        double A_L = Math.toDegrees(Math.atan(l2w / Math.abs(l2t_x)  ));
+        Log.i(TAG, "A_L (x)= " + A_L);
 
 
-        Log.i(TAG, "verticalAngle(y)=" + verticalAngle);
-        Log.i(TAG, "horizonAngle(x)=" + horizonAngle);
+        if(l2t_x > 0) {
 
+            Log.i(TAG, "target on Right of laser : " + l2t_x );
+            double X_angel = A_R - (A_L - A_K);
+            Log.i(TAG, "X_angel= " + X_angel);
 
-        double[] out = {horizonAngle, verticalAngle};
-        return out;
+            double Y = Math.sqrt( (ol2t_dx * ol2t_dx) + (orl2t_dx * orl2t_dx) - (2 * ol2t_dx * orl2t_dx * Math.cos(Math.toRadians(X_angel)) ));
+            Log.i(TAG, "Y= " + Y);
+
+            horizonAngle = (Math.toDegrees(Math.asin((Y / 2) / laser_oblique_x))) * 2;
+        }else if(l2t_x < 0){
+
+            Log.i(TAG, "target on Left  of laser : " + l2t_x );
+            double A_angel = 180 - (A_R + A_L +  A_K);
+            Log.i(TAG, "A_angel= " + A_angel);
+
+            double X_dis = Math.sqrt((ol2t_dx * ol2t_dx) + (orl2t_dx * orl2t_dx) - 2 * ol2t_dx * orl2t_dx * Math.cos(Math.toRadians(A_angel)));
+            Log.i(TAG, "X_dis= " + X_dis);
+
+            horizonAngle = (Math.toDegrees(Math.asin( (X_dis / 2) / laser_oblique_x ))) * 2 * -1;
+        }
+
+        return  horizonAngle;
     }
 
-    private double[] find_DistanceToMove(double[] angle){
-        final String TAG = "find_DistanceToMove";
-        final double kibo_x_size = 0.0994;
-        final double kibo_z_size = 0.0285;
+    private double verticalAngle_axis(double cam_target_dis_y , double k2w , double l2w){
+        final String TAG = "verticalAngle_axis";
+        double verticalAngle = 0;
 
-        final double horizonAngle = angle[0];
-        final double verticalAngle = angle[1];
+        double k2t_y = cam_target_dis_y + cam_high;
+        double l2t_y = cam_target_dis_y - (laser_high - cam_high );
+        Log.i(TAG, "kibo 2 target _y(y)= " + k2t_y);
+        Log.i(TAG, "laser 2 target _y(y)= " + l2t_y);
 
-        double xMove =  kibo_x_size / Math.cos(Math.toRadians(horizonAngle)) + 0.045 + 0.003;//+ 0.009;//+ 0.05 - 0.006 + 0.01;
-        double zMove =  kibo_z_size / Math.cos(Math.toRadians(verticalAngle)) - 0.02;
 
-        Log.i(TAG, "xMove=" + xMove);
-        Log.i(TAG, "yMove=" + zMove);
+        double ok2t_dy = Math.sqrt((k2w * k2w) + (k2t_y * k2t_y));
+        Log.i(TAG, "ok2t_dy= " + ok2t_dy);
+        double ol2t_dy = Math.sqrt((l2w * l2w) + (l2t_y * l2t_y));
+        Log.i(TAG, "ol2t_dy= " + ol2t_dy);
+        double orl2t_dy =  Math.sqrt( Math.abs((ok2t_dy * ok2t_dy) - (laser_high * laser_high )) )  - laser_depth;
+        Log.i(TAG, "orl2t_dy= " + orl2t_dy);
 
-        double[] out = {xMove, zMove};
-        return out;
+        double cosVal_A_R = ((orl2t_dy * orl2t_dy) + (ok2t_dy * ok2t_dy) - (laser_oblique_y * laser_oblique_y )) / (2 * orl2t_dy * ok2t_dy);
+        Log.i(TAG, "cosVal_A_R= " + cosVal_A_R);
+
+        double A_R = Math.toDegrees(Math.acos(cosVal_A_R));
+        Log.i(TAG, "A_R (y)= " + A_R);
+
+        double A_K = Math.toDegrees(Math.atan(k2w / Math.abs(k2t_y) ));
+        Log.i(TAG, "A_K (y)= " + A_K);
+
+        double A_L = Math.toDegrees(Math.atan(l2w / Math.abs(l2t_y)  ));
+        Log.i(TAG, "A_L (y)= " + A_L);
+
+        double A_angel =  A_K - (A_R + A_L);
+        Log.i(TAG, "X_angel= " + A_angel);
+
+        double X_dis = Math.sqrt((ol2t_dy * ol2t_dy) + (orl2t_dy * orl2t_dy) - 2 * ol2t_dy * orl2t_dy * Math.cos(Math.toRadians(A_angel)));
+        Log.i(TAG, "X_dis= " + X_dis);
+
+        verticalAngle = (Math.toDegrees(Math.asin( (X_dis / 2) / laser_oblique_x ))) * 2 * -1;
+
+        return  verticalAngle;
     }
-
     private Quaternion eulerAngleToQuaternion(double xAngle, double yAngle, double zAngle) {
         final String TAG = "Convert euler angle to quaternion";
 
