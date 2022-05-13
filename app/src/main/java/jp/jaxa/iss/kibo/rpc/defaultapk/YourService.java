@@ -84,10 +84,26 @@ public class YourService extends KiboRpcService {
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
     }
 
-    private double[] estimateBoardPos(Mat img) {
+    private double[] estimateBoardPosAve(Mat img, int totalAttempts) {
+        final String tag = "estimateBoardPosAve " + totalAttempts + " times";
+        double[] pos = new double[3];
+        for (int i = 0; i < totalAttempts; i++) {
+            double[] boardPos = estimateBoardPos(img, i + 1);
+            pos[0] += boardPos[0];
+            pos[1] += boardPos[1];
+            pos[2] += boardPos[2];
+        }
+        pos = new double[]{pos[0] / totalAttempts, pos[1] / totalAttempts,
+                pos[2] / totalAttempts};
+
+        Log.i(tag, "Average Aruco board pos: {" + pos[0] + ", " + pos[1] + ", " + pos[2] + "}");
+        return pos;
+    }
+
+    private double[] estimateBoardPos(Mat img, int attemptNum) {
         final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
-        final String TAG = "estimateBoardPos";
-        api.saveMatImage(img, "ReadAr.png");
+        final String TAG = "estimateBoardPos Attempt#" + attemptNum;
+        api.saveMatImage(img, "ReadAr" + attemptNum + ".png");
         Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
         cameraMat.put(0, 0, CAM_MATSIM);
@@ -118,7 +134,7 @@ public class YourService extends KiboRpcService {
             Mat detectedMarkerImg = new Mat();
             Imgproc.cvtColor(img, detectedMarkerImg, Imgproc.COLOR_GRAY2RGB);
             Aruco.drawDetectedMarkers(detectedMarkerImg, corners);
-            api.saveMatImage(detectedMarkerImg, "ArucoDetectedMarker.png");
+            api.saveMatImage(detectedMarkerImg, "ArucoDetectedMarker" + attemptNum + ".png");
 
             Mat boardIDs = new Mat(4, 1, CvType.CV_8U);
             boardIDs.put(0, 0, 12);
@@ -136,7 +152,7 @@ public class YourService extends KiboRpcService {
             Log.i(TAG, "Board rvec: " + rvec.dump());
 
             Aruco.drawAxis(detectedMarkerImg, cameraMat, distCoeffs, rvec, tvec, MARKER_LENGTH);
-            api.saveMatImage(detectedMarkerImg, "ArucoBoardPose.png");
+            api.saveMatImage(detectedMarkerImg, "ArucoBoardPose" + attemptNum + ".png");
 
             double tvec_x = tvec.get(0, 0)[0];
             double tvec_y = tvec.get(1, 0)[0];
@@ -296,10 +312,11 @@ public class YourService extends KiboRpcService {
 //
 //        move_to(11.2746, -9.92284, 5.29881, qToTurn);
 
-        double[] arBoardPos = estimateBoardPos(api.getMatNavCam());
-
+        double[] arBoardPos = estimateBoardPos(api.getMatNavCam(), 1);
         relative_move_to(arBoardPos[1] - LASER_POS[1], 0, arBoardPos[2] - LASER_POS[2],
                 quaternion);
+
+//        double[] arBoardPos = estimateBoardPosAve(api.getMatNavCam(), 5);
 
         api.laserControl(true);
         api.saveMatImage(api.getMatNavCam(), "ShootLaser.png");
