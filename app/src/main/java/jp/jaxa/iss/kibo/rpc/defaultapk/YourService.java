@@ -2,12 +2,16 @@ package jp.jaxa.iss.kibo.rpc.defaultapk;
 
 import android.util.Log;
 
+import org.opencv.aruco.Aruco;
+import org.opencv.aruco.Dictionary;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
-import org.opencv.core.Core;
 
 import org.opencv.imgproc.Imgproc;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import gov.nasa.arc.astrobee.Result;
 import gov.nasa.arc.astrobee.types.Point;
@@ -129,38 +133,79 @@ public class YourService extends KiboRpcService {
     }
 
     class AngleCalc {
-        private Mat cam_c;
+        private double xc;
+        private double yc;
+        private double tL = Math.abs(10.5 - 9.92284);
 
         public AngleCalc(double[] target) {
-            double s = 0.45946;
-            double[] uvA = {target[0] * s, target[1] * s, 1 * s};
-            double[] CamMatInvA = {
-                    0.00287605, 0., -1.82167315,
-                    0., 0.00280003, -1.38516498,
-                    0., 0., 1.
-            };
-
-            Mat uv = new Mat(3, 1, CvType.CV_64FC1);
-            uv.put(0, 0, uvA);
-
-            Mat CamMatInv = new Mat(3, 3, CvType.CV_64FC1);
-            CamMatInv.put(0, 0, CamMatInvA);
-
-            this.cam_c = new Mat(3, 1, CvType.CV_64FC1);
-            Core.gemm(CamMatInv, uv, 1, new Mat(3, 3, CvType.CV_64FC1), 0, this.cam_c);
+            double[] center = {640, 490};
+            double C = computeC();
+            C = 0.002055793698729749;
+            this.xc = ((target[0] - center[0]) * C) - 0.0422;
+            this.yc = ((target[1] - center[1]) * C) - 0.0826;
 
             // Logging
             String TAG = "AngleCalc";
             Log.i(TAG, "target = " + target[0] + ", " + target[1]);
-            for (int i = 0; i < 3; i++) {
-                Log.i(TAG, "cam_c" + i + " = " + cam_c.get(i, 0)[0]);
-            }
+            Log.i(TAG, "C(meterPerPixel) = " + C);
+            Log.i(TAG, "xc, yc = " + xc + ", " + yc);
+
         }
 
-        private double dist(double x0, double y0, double x1, double y1) {
+        private double computeC() {
+            String TAG = "computeC";
+
+            Mat ids = new Mat();
+            Mat img = new Mat(api.getMatNavCam(), new Rect(350, 350, 600, 360));
+            List<Mat> corners = new ArrayList<>();
+            final Dictionary dict = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
+
+            int counter = 0;
+            while (ids.rows() < 4 && counter < LOOP_MAX) { // try 3 until find all 4 ids
+                Aruco.detectMarkers(img, dict, corners, ids); // find all ids
+                counter++;
+            }
+
+
+            Log.i(TAG, "OK?");
+            for (int i = 0; i < corners.size(); i++) {
+                Mat p = corners.get(i);
+                Log.i(TAG, "corners[" + i + "]=" + p.dump());
+                for (int j = 0; j < p.cols(); j++) {
+                    double[] t = p.get(0, j);
+                    t[0] += 350;
+                    t[1] += 350;
+                    Log.i(TAG, "OK? b4 put");
+                    p.put(0, j, t[0], t[1]);
+                }
+                Log.i(TAG, "corners[" + i + "]=" + p.dump());
+            }
+            Log.i(TAG, "OK?");
+
+
+            double sLen = 0;
+            for (int i = 0; i < corners.size(); i++) {
+                Mat udP = undistortPoints(corners.get(i));
+                Log.i(TAG, "udP  = " + udP.dump());
+
+                double s1 = distance(udP.get(0, 0)[0], udP.get(0, 0)[1], udP.get(0, 1)[0], udP.get(0, 1)[1]);
+                double s2 = distance(udP.get(0, 1)[0], udP.get(0, 1)[1], udP.get(0, 2)[0], udP.get(0, 2)[1]);
+                double s3 = distance(udP.get(0, 2)[0], udP.get(0, 2)[1], udP.get(0, 3)[0], udP.get(0, 3)[1]);
+                double s4 = distance(udP.get(0, 3)[0], udP.get(0, 3)[1], udP.get(0, 0)[0], udP.get(0, 0)[1]);
+                double sAvg = (s1 + s2 + s3 + s4)/4;
+                sLen += sAvg;
+            }
+
+            Log.i(TAG, "sLen  = " + sLen / corners.size());
+
+            return 0.05 / (sLen / corners.size());
+        }
+
+        private double distance(double x0, double y0, double x1, double y1) {
             return Math.sqrt(Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2));
         }
 
+        // down up
         public double computeXAngle() {
 
             // Angle calculation from tools/laser.ipynb
@@ -168,19 +213,19 @@ public class YourService extends KiboRpcService {
             // Precomputed radius of Astrobee circle
             double r1 = 0.1711585522257068;
             // Length from Astrobee pivot to target
-            double l = Math.sqrt(Math.pow(0.5771599999999992, 2) + Math.pow(-(cam_c.get(1, 0)[0] - 0.0826), 2));
+            double l = Math.sqrt(Math.pow(tL, 2) + Math.pow(yc, 2));
             // Radius of target circle
             double r2 = r1 * Math.cos(pivotAngle) + Math.sqrt(Math.pow(l, 2) - Math.pow(r1, 2) * Math.pow(Math.sin(pivotAngle), 2));
 
 
             // Find intersection points
             Circle c = new Circle(0, 0, r1);
-            double[] intersectP = c.intersect(new Circle(0.5771599999999992, -(cam_c.get(1, 0)[0] - 0.0826), r2));
+            double[] intersectP = c.intersect(new Circle(tL, -yc, r2));
 
             // Select the bigger y
-            double x = dist(0.1302, 0.1111, intersectP[2], intersectP[3]);
+            double triBase = distance(0.1302, 0.1111, intersectP[2], intersectP[3]);
 
-            double angle = 2 * Math.atan((x / 2) / r1);
+            double angle = 2 * Math.asin((triBase / 2) / r1);
 
             // Logging
             String TAG = "computeXAngle";
@@ -189,32 +234,33 @@ public class YourService extends KiboRpcService {
             for (int i = 0; i < intersectP.length; i++) {
                 Log.i(TAG, "intersectP " + i + " = " + intersectP[i]);
             }
-            Log.i(TAG, "x = " + x);
+            Log.i(TAG, "triBase = " + triBase);
             Log.i(TAG, "Angle = " + angle);
 
             return angle;
         }
 
+        // left right
         public double computeYAngle() {
 
             // Angle calculation from tools/laser.ipynb
-            double pivotAngle = 1.984736804241342;
+            double pivotAngle = 2.727652176143348;
             // Precomputed radius of Astrobee circle
             double r1 = 0.14221068876846074;
             // Length from Astrobee pivot to target
-            double l = Math.sqrt(Math.pow(0.5771599999999992, 2) + Math.pow(cam_c.get(0, 0)[0] - 0.0422, 2));
+            double l = Math.sqrt(Math.pow(tL, 2) + Math.pow(xc, 2));
             // Radius of target circle
             double r2 = r1 * Math.cos(pivotAngle) + Math.sqrt(Math.pow(l, 2) - Math.pow(r1, 2) * Math.pow(Math.sin(pivotAngle), 2));
 
 
             // Find intersection points
             Circle c = new Circle(0, 0, r1);
-            double[] intersectP = c.intersect(new Circle(cam_c.get(0, 0)[0] - 0.0422, 0.5771599999999992, r2));
+            double[] intersectP = c.intersect(new Circle(xc, tL, r2));
 
             // Select the bigger x
-            double x = dist(0.1302, 0.0572, intersectP[0], intersectP[1]);
+            double triBase = distance(0.0572, 0.1302, intersectP[0], intersectP[1]);
 
-            double angle = 2 * Math.atan((x / 2) / r1);
+            double angle = 2 * Math.asin((triBase / 2) / r1);
 
             // Logging
             String TAG = "computeYAngle";
@@ -223,7 +269,7 @@ public class YourService extends KiboRpcService {
             for (int i = 0; i < intersectP.length; i++) {
                 Log.i(TAG, "intersectP " + i + " = " + intersectP[i]);
             }
-            Log.i(TAG, "x = " + x);
+            Log.i(TAG, "triBase = " + triBase);
             Log.i(TAG, "Angle = " + angle);
 
             return angle;
