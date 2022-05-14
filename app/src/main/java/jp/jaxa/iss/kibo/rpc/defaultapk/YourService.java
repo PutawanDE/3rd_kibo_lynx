@@ -228,49 +228,41 @@ public class YourService extends KiboRpcService {
         try {
             boolean aim_Succeed;
             boolean on_Laser = false;
+            int aim_try = 0;
+
+            do {// AI aim and shoot
+                aim_Succeed = aim_shoot("B");
+                aim_try++;
+            }while (!aim_Succeed && aim_try < LOOP_MAX );
+            Log.i(TAG, "aim status = "  +" :" + aim_Succeed);
+
+            if(debug){
+                aim_Succeed = true;
+            }
+            //#######################
+            if(FAIL_to_Find_TARGET && It_realworld){
+                Log.i(FailTAG, "FAIL_to_READ_AR target_2");
+                return  false;
+            }
+            //#######################
 
             for (int i = 0 ; i < 10 ; i++){
 
-                // AI aim and shoot
-                if(i == 0 || i == 5){
-//                if(i == 0){
-                    int aim_try = 0;
-                    do {
-                        aim_Succeed = aim_shoot("B");
-                        aim_try++;
-                    }while (!aim_Succeed && aim_try < LOOP_MAX );
-                }else {
-                    aim_Succeed = true;
-                }
-                Log.i(TAG, "aim status = "+ i  +" :" + aim_Succeed);
-                if(debug){
-                    aim_Succeed = true;
-                }
-
                 if(aim_Succeed || debug) {
-                    //#######################
-                    if(FAIL_to_Find_TARGET && It_realworld){
-                        Log.i(FailTAG, "FAIL_to_READ_AR target_2");
-                        return  false;
-                    }
-                    //#######################
                     if(!on_Laser){
                         api.laserControl(true);
                         on_Laser = true;
                     }
-                    api.takeTarget2Snapshot();
-
-                    if(i == 0 || i == 5){
-//                    if(i == 0){
-
+                    if(i%2 == 0){
                             Bitmap laserPic = api.getBitmapNavCam();
                         api.saveBitmapImage(laserPic, (System.currentTimeMillis()-debug_Timestart )+"laser B try "+i +".png");
                     }
                 }else {
-                    Log.i(FailTAG, "FAIL_to_aim target_2");
+                    Log.i(FailTAG, "FAIL_to_shoot target_2");
                 }
 
             }
+            api.takeTarget2Snapshot();
             api.laserControl(false);
             return  true;
         }catch (Exception e){
@@ -322,7 +314,7 @@ public class YourService extends KiboRpcService {
         return  result.hasSucceeded();
     }
 
-    private boolean turn_to(Quaternion q) {
+    private void turn_to(Quaternion q) {
         final String TAG = "turn_to";
         final Point p_dormant = new Point(0, 0, 0);
 
@@ -337,7 +329,7 @@ public class YourService extends KiboRpcService {
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
 
         Log.i(TAG, "Done turn to p:"  +p_dormant +", q:" + q);
-        return  result.hasSucceeded();
+
     }
 
     private boolean  aim_shoot(String targetType){
@@ -380,7 +372,8 @@ public class YourService extends KiboRpcService {
 
                 if(enable_aim) {  // turn or move kibo to aim
                     Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
-                   // Quaternion imageQ = eulerAngleToQuaternion(0, 0, angleToTurn[0]); // lock left right
+//                    Quaternion nowQuaternion_kibo = api.getRobotKinematics().getOrientation();
+//                    Quaternion qToTurn_Target2 = combineQuaternion(imageQ, nowQuaternion_kibo);
                     Quaternion qToTurn_Target2 = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
                     turn_to( qToTurn_Target2);
                     Log.i(TAG, "aim_shoot Succeed");
