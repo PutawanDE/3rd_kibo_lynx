@@ -51,6 +51,7 @@ public class YourService extends KiboRpcService {
     boolean debug_pointB_aim_snap = false;
     long debug_Timestart = 0;
 
+
     double arTag_sizePx= -1;
     double meter_perPx= -1;
     double xDistance = 0;
@@ -58,15 +59,16 @@ public class YourService extends KiboRpcService {
     double l2t_x = 0;
     double l2t_y = 0;
 
-    double laser_width  =  0.0572;
-    double laser_depth  =  0.1302;
-    double laser_oblique_x = 0.14221;
-    double laser_oblique_y = 0.171159;
-    double laser_high = 0.1111;
+    final double laser_width  =  0.0572;
+    final double laser_depth  =  0.1302;
+    final double laser_oblique_x = 0.14221;
+    final double laser_oblique_y = 0.171159;
+    final double laser_high = 0.1111;
 
-    double cam_depth = 0.1177;
-    double cam_width  = 0.0422;
-    double cam_high  = 0.0826;
+    final double focusCamera = 4.161542;
+    final double cam_depth = 0.1177;
+    final double cam_width  = 0.0422;
+    final double cam_high  = 0.0826;
 
 
     final Point point_A_to_shoot_target1 = new Point(10.71, -7.811971 , 4.48);
@@ -321,7 +323,7 @@ public class YourService extends KiboRpcService {
     }
 
     private boolean turn_to(Quaternion q) {
-        final String TAG = "move_to";
+        final String TAG = "turn_to";
         final Point p_dormant = new Point(0, 0, 0);
 
         int counter = 0;
@@ -380,7 +382,7 @@ public class YourService extends KiboRpcService {
                     Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
                    // Quaternion imageQ = eulerAngleToQuaternion(0, 0, angleToTurn[0]); // lock left right
                     Quaternion qToTurn_Target2 = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
-                    move_to(point_B_to_shoot_target2 , qToTurn_Target2);
+                    turn_to( qToTurn_Target2);
                     Log.i(TAG, "aim_shoot Succeed");
                 }
 
@@ -614,9 +616,10 @@ public class YourService extends KiboRpcService {
         xDistance = (target[0]+350) - ref[0];
         yDistance = ref[1] - (target[1]+350);
 
-//        final double cam2walldis = 0.54046 ; // focusCamera = 4.161542
+
+        double cam2walldis = focusCamera * 5 / arTag_sizePx;
         //TODO
-        final double cam2walldis = 0.56 ; // focusCamera = 4.161542
+//        final double cam2walldis = 0.56 ; // focusCamera = 4.161542
 
 
         Log.i(TAG, "xDistance=" + xDistance);
