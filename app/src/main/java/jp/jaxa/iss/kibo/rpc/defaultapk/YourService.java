@@ -121,7 +121,7 @@ public class YourService extends KiboRpcService {
                 api.takeTarget1Snapshot();
                 Thread.sleep(5000);
                 Bitmap laserPic = api.getBitmapNavCam();
-                api.saveBitmapImage(laserPic, "laser targer 1 at B");
+                api.saveBitmapImage(laserPic, (System.currentTimeMillis()-debug_Timestart )+"laser targer 1 at B.png");
                 api.laserControl(false);
 
                 Thread.sleep(10000);
@@ -131,7 +131,7 @@ public class YourService extends KiboRpcService {
                 api.takeTarget1Snapshot();
                 Thread.sleep(5000);
                 Bitmap Pic_50 = api.getBitmapNavCam();
-                api.saveBitmapImage(Pic_50, "laser targer 2 at B");
+                api.saveBitmapImage(Pic_50, (System.currentTimeMillis()-debug_Timestart )+"laser targer 2 at B.png");
                 api.laserControl(false);
 
                 Thread.sleep(5000);
@@ -153,7 +153,7 @@ public class YourService extends KiboRpcService {
             api.reportPoint1Arrival();
 
             Bitmap image1_A = api.getBitmapNavCam();
-            api.saveBitmapImage(image1_A, "Point A Arrival");
+            api.saveBitmapImage(image1_A, (System.currentTimeMillis()-debug_Timestart )+"Point A Arrival.png");
             return point_A_Succeeded;
         }catch (Exception e){
             Log.i(FailTAG, "mission_point_A =" + e);
@@ -183,7 +183,7 @@ public class YourService extends KiboRpcService {
                 api.takeTarget1Snapshot();
 
                 Bitmap laserPic = api.getBitmapNavCam();
-                api.saveBitmapImage(laserPic, "laser targer 1 at A");
+                api.saveBitmapImage(laserPic, (System.currentTimeMillis()-debug_Timestart )+"laser targer 1 at A.png");
                 api.laserControl(false);
 
                 return  true;
@@ -213,7 +213,7 @@ public class YourService extends KiboRpcService {
 
             //       save the image
             Bitmap image1_B = api.getBitmapNavCam();
-            api.saveBitmapImage(image1_B, "Point B Arrival");
+            api.saveBitmapImage(image1_B, (System.currentTimeMillis()-debug_Timestart )+"Point B Arrival.png");
 
             return  point_B_prime_Succeeded;
 
@@ -232,8 +232,8 @@ public class YourService extends KiboRpcService {
             for (int i = 0 ; i < 10 ; i++){
 
                 // AI aim and shoot
-                //if(i == 0 || i == 5){
-                if(i == 0){
+                if(i == 0 || i == 5){
+//                if(i == 0){
                     int aim_try = 0;
                     do {
                         aim_Succeed = aim_shoot("B");
@@ -260,11 +260,11 @@ public class YourService extends KiboRpcService {
                     }
                     api.takeTarget2Snapshot();
 
-//                    if(i == 0 || i == 5){
-                    if(i == 0){
+                    if(i == 0 || i == 5){
+//                    if(i == 0){
 
                             Bitmap laserPic = api.getBitmapNavCam();
-                        api.saveBitmapImage(laserPic, "laser B try "+i);
+                        api.saveBitmapImage(laserPic, (System.currentTimeMillis()-debug_Timestart )+"laser B try "+i +".png");
                     }
                 }else {
                     Log.i(FailTAG, "FAIL_to_aim target_2");
@@ -347,7 +347,7 @@ public class YourService extends KiboRpcService {
             Mat buffer =  api.getMatNavCam();
             api.saveMatImage(buffer,  (System.currentTimeMillis()-debug_Timestart )+" Point B buffer.png" );
 
-            Thread.sleep(20000);
+            Thread.sleep(5000);
             Mat pic_cam =  api.getMatNavCam();
             Thread.sleep(1000);
             Mat undistort_Cam = undistortPic(pic_cam);
@@ -612,7 +612,8 @@ public class YourService extends KiboRpcService {
     private double[] pixelDistanceToAngle(double[] target ) {
         final String TAG = "pixelDistanceToAngle";
         Log.i(TAG, "================== pixelDistanceToAngle ==================");
-        double[] ref  = {640, 480};
+        //double[] ref  = {640, 480};
+        double[] ref  = {635.434258, 500.335102};
         xDistance = (target[0]+350) - ref[0];
         yDistance = ref[1] - (target[1]+350);
 
@@ -713,6 +714,7 @@ public class YourService extends KiboRpcService {
     private double verticalAngle_axis(double cam_target_dis_y , double k2w , double l2w){
         final String TAG = "verticalAngle_axis";
         double verticalAngle;
+        double A_angel = 0;
 
         double k2t_y = cam_target_dis_y + cam_high;
         l2t_y = cam_target_dis_y - (laser_high - cam_high );
@@ -739,13 +741,28 @@ public class YourService extends KiboRpcService {
         double A_L = Math.toDegrees(Math.atan(l2w / Math.abs(l2t_y)  ));
         Log.i(TAG, "A_L (y)= " + A_L);
 
-        double A_angel =  A_K - (A_R + A_L);
+        if(l2t_y > 0){
+            Log.i(TAG, "target on top  of laser : " + l2t_y );
+            A_angel = (A_R + A_K) - A_L;
+        }else {
+            if(k2t_y < 0) {
+                Log.i(TAG, "target on bottom of kibo : " + k2t_y );
+                A_angel =  A_K - (A_R + A_L);
+            }else if(k2t_y > 0){
+                Log.i(TAG, "target on top  of kibo : " + k2t_y );
+                A_angel = 180 - (A_R + A_L +  A_K);
+            }
+        }
         Log.i(TAG, "A_angel= " + A_angel);
 
         double X_dis = Math.sqrt((ol2t_dy * ol2t_dy) + (orl2t_dy * orl2t_dy) - 2 * ol2t_dy * orl2t_dy * Math.cos(Math.toRadians(A_angel)));
         Log.i(TAG, "X_dis= " + X_dis);
 
-        verticalAngle = (Math.toDegrees(Math.asin( (X_dis / 2) / laser_oblique_y ))) * 2 * -1;
+        verticalAngle = (Math.toDegrees(Math.asin( (X_dis / 2) / laser_oblique_y ))) * 2;
+        if(l2t_y<0){
+            Log.i(TAG, "verticalAngle are negative" );
+            verticalAngle = verticalAngle*-1;
+        }
 
         return  verticalAngle;
     }
