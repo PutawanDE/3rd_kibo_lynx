@@ -519,6 +519,7 @@ public class YourService extends KiboRpcService {
         AR_xDist = (xRight-xLeft)/2;
         AR_yDist = (yDown-yUp)/2;
         // ###########################
+        Log.i(TAG, " AR_xDist:"  + AR_xDist + " AR_yDist:" + AR_yDist );
         return new arTag_data(AR_xDist, AR_yDist, xCenter, yCenter);
     }
 
