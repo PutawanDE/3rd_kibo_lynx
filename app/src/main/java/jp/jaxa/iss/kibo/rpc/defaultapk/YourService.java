@@ -7,6 +7,7 @@ import org.opencv.aruco.Dictionary;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
+import org.opencv.core.Core;
 
 import org.opencv.imgproc.Imgproc;
 
@@ -32,12 +33,6 @@ public class YourService extends KiboRpcService {
             0.000000, 0.000000, 1.000000
     };
 
-    final double[] NEWCAM_MATSIM = {
-            347.69958496, 0., 633.39499987,
-            0., 357.13922119, 494.69674079,
-            0., 0., 1.
-    };
-
 
     final double[] DIST_COEFFSIM = {
             -0.164787, 0.020375, -0.001572, -0.000369, 0.000000
@@ -53,145 +48,94 @@ public class YourService extends KiboRpcService {
             result = api.moveTo(p, q, true);
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
-
     }
 
-    private Mat find_circle() {
-        Mat circle = new Mat();
-        Mat img = new Mat(api.getMatNavCam(), new Rect(550, 500, 300, 300));
-        api.saveMatImage(api.getMatNavCam(), "target2");
-        api.saveMatImage(img, "target2_c");
+    private Mat undistortCroppedImg(Mat img, int x, int y) {
+        // change principal point of CAM_MATSIM
+        final double[] CAM_MAT = CAM_MATSIM;
+        CAM_MAT[2] -= x;
+        CAM_MAT[5] -= y;
 
-        Imgproc.HoughCircles(img, circle, Imgproc.HOUGH_GRADIENT, 1, 300, 50, 30, 0, 0);
-
-        org.opencv.core.Point center = new org.opencv.core.Point(circle.get(0, 0)[0], circle.get(0, 0)[1]);
-
-        if (circle.empty())
-            return null;
-
-        Mat res = new Mat(1, 2, CvType.CV_32FC2);
-        float[] point = {(float) center.x + 550, (float) center.y + 500};
-
-
-        res.put(0, 0, point);
-
-        return res;
-    }
-
-    /**
-     * @param points 1xN 2 Channel
-     * @return 1xN 2 Channel
-     */
-    private Mat undistortPoints(Mat points) {
+        Mat ud_img = new Mat(img.rows(), img.cols(), img.type());
         Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
-        Mat newCamMat = new Mat(3, 3, CvType.CV_32FC1);
 
-        cameraMat.put(0, 0, CAM_MATSIM);
+        cameraMat.put(0, 0, CAM_MAT);
         distCoeffs.put(0, 0, DIST_COEFFSIM);
-        newCamMat.put(0, 0, NEWCAM_MATSIM);
+        Imgproc.undistort(img, ud_img, cameraMat, distCoeffs);
 
-        Mat out = new Mat(points.rows(), points.cols(), points.type());
-
-        Imgproc.undistortPoints(points, out, cameraMat, distCoeffs, new Mat(), newCamMat);
-
-        return out;
+        return ud_img;
     }
 
-    class Circle {
-        private double x, y, radius;
 
-        public Circle(double x, double y, double radius) {
-            this.x = x;
-            this.y = y;
-            this.radius = radius;
-        }
-
-        public double[] intersect(Circle c) {
-            double d = Math.sqrt(Math.pow(c.x - x, 2) + Math.pow(c.y - y, 2));
-
-            if (d > radius + c.radius) return null;
-            if (d < Math.abs(radius - c.radius)) return null;
-
-            if (d == 0 && radius == c.radius) return null;
-            else {
-                double a = (Math.pow(radius, 2) - Math.pow(c.radius, 2) + Math.pow(d, 2)) / (2 * d);
-                double h = Math.sqrt(Math.pow(radius, 2) - Math.pow(a, 2));
-
-                double x2 = x + a * (c.x - x) / d;
-                double y2 = y + a * (c.y - y) / d;
-
-                double x3 = x2 + h * (c.y - y) / d;
-                double y3 = y2 - h * (c.x - x) / d;
-
-                double x4 = x2 - h * (c.y - y) / d;
-                double y4 = y2 + h * (c.x - x) / d;
-
-                return new double[]{x3, y3, x4, y4};
-            }
-        }
+    private double distance(double x0, double y0, double x1, double y1) {
+        return Math.sqrt(Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2));
     }
 
-    class AngleCalc {
+    class Target {
         private double xc;
         private double yc;
-        private double tL = Math.abs(10.5 - 9.92284);
+        private double tL;
 
-        public AngleCalc(double[] target) {
-            double[] center = {640, 490};
-            double C = computeC();
-            C = 0.002055793698729749;
-            this.xc = ((target[0] - center[0]) * C) - 0.0422;
-            this.yc = ((target[1] - center[1]) * C) - 0.0826;
+        public Target() {
+            final int cX = 500;
+            final int cY = 500;
 
-            // Logging
-            String TAG = "AngleCalc";
-            Log.i(TAG, "target = " + target[0] + ", " + target[1]);
-            Log.i(TAG, "C(meterPerPixel) = " + C);
-            Log.i(TAG, "xc, yc = " + xc + ", " + yc);
+            Mat img = new Mat(api.getMatNavCam(), new Rect(cX, cY, 330, 200));
+            Mat ud_img = undistortCroppedImg(img, cX, cY);
+            double meterPx = computeMeterPx(ud_img);
+            double[] target = findCircle(ud_img, cX, cY);
 
+            double[] center = {635.434258, 500.335102}; // principal point
+            this.xc = ((target[0] - center[0]) * meterPx) - 0.0422;
+            this.yc = -((target[1] - center[1]) * meterPx) + 0.0826;
+            this.tL = Math.abs(-10.581 - (-9.922840));
+
+
+            api.saveMatImage(api.getMatNavCam(), "target2");
+            api.saveMatImage(img, "target2_c");
+            api.saveMatImage(ud_img, "target2_ud");
+            String TAG = "Target";
+            Log.i(TAG, "meterPerPixel = " + meterPx);
+            Log.i(TAG, "target = " + target);
+            Log.i(TAG, "xc, yc, tL = " + xc + ", " + yc + ", " + tL);
         }
 
-        private double computeC() {
-            String TAG = "computeC";
+        public double[] getCordinates() {
+            return new double[]{xc, yc, tL};
+        }
+
+        private double computeMeterPx(Mat ud_img) {
+            String TAG = "computeMeterPx";
 
             Mat ids = new Mat();
-            Mat img = new Mat(api.getMatNavCam(), new Rect(350, 350, 600, 360));
             List<Mat> corners = new ArrayList<>();
             final Dictionary dict = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
 
             int counter = 0;
             while (ids.rows() < 4 && counter < LOOP_MAX) { // try 3 until find all 4 ids
-                Aruco.detectMarkers(img, dict, corners, ids); // find all ids
+                Aruco.detectMarkers(ud_img, dict, corners, ids); // find all ids
                 counter++;
             }
 
-
-            Log.i(TAG, "OK?");
             for (int i = 0; i < corners.size(); i++) {
                 Mat p = corners.get(i);
-                Log.i(TAG, "corners[" + i + "]=" + p.dump());
                 for (int j = 0; j < p.cols(); j++) {
                     double[] t = p.get(0, j);
                     t[0] += 350;
                     t[1] += 350;
-                    Log.i(TAG, "OK? b4 put");
+
                     p.put(0, j, t[0], t[1]);
                 }
-                Log.i(TAG, "corners[" + i + "]=" + p.dump());
             }
-            Log.i(TAG, "OK?");
-
 
             double sLen = 0;
             for (int i = 0; i < corners.size(); i++) {
-                Mat udP = undistortPoints(corners.get(i));
-                Log.i(TAG, "udP  = " + udP.dump());
-
-                double s1 = distance(udP.get(0, 0)[0], udP.get(0, 0)[1], udP.get(0, 1)[0], udP.get(0, 1)[1]);
-                double s2 = distance(udP.get(0, 1)[0], udP.get(0, 1)[1], udP.get(0, 2)[0], udP.get(0, 2)[1]);
-                double s3 = distance(udP.get(0, 2)[0], udP.get(0, 2)[1], udP.get(0, 3)[0], udP.get(0, 3)[1]);
-                double s4 = distance(udP.get(0, 3)[0], udP.get(0, 3)[1], udP.get(0, 0)[0], udP.get(0, 0)[1]);
+                Mat p = corners.get(i);
+                double s1 = distance(p.get(0, 0)[0], p.get(0, 0)[1], p.get(0, 1)[0], p.get(0, 1)[1]);
+                double s2 = distance(p.get(0, 1)[0], p.get(0, 1)[1], p.get(0, 2)[0], p.get(0, 2)[1]);
+                double s3 = distance(p.get(0, 2)[0], p.get(0, 2)[1], p.get(0, 3)[0], p.get(0, 3)[1]);
+                double s4 = distance(p.get(0, 3)[0], p.get(0, 3)[1], p.get(0, 0)[0], p.get(0, 0)[1]);
                 double sAvg = (s1 + s2 + s3 + s4)/4;
                 sLen += sAvg;
             }
@@ -201,80 +145,72 @@ public class YourService extends KiboRpcService {
             return 0.05 / (sLen / corners.size());
         }
 
-        private double distance(double x0, double y0, double x1, double y1) {
-            return Math.sqrt(Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2));
+        private double[] findCircle(Mat ud_img, int x, int y) {
+            Mat circle = new Mat();
+            Imgproc.HoughCircles(ud_img, circle, Imgproc.HOUGH_GRADIENT, 1, 300, 50, 30, 40, 50);
+
+            if (circle.empty())
+                return null;
+
+            double[] point = {circle.get(0, 0)[0] + x, circle.get(0, 0)[1] + y};
+            return point;
         }
+    }
 
-        // down up
-        public double computeXAngle() {
+    // down up
+    public double computeXAngle(double tL, double yc) {
+        double navX = 0.1302;
+        double navY = 0.1111;
 
-            // Angle calculation from tools/laser.ipynb
-            double pivotAngle = 2.4351843752901243;
-            // Precomputed radius of Astrobee circle
-            double r1 = 0.1711585522257068;
-            // Length from Astrobee pivot to target
-            double l = Math.sqrt(Math.pow(tL, 2) + Math.pow(yc, 2));
-            // Radius of target circle
-            double r2 = r1 * Math.cos(pivotAngle) + Math.sqrt(Math.pow(l, 2) - Math.pow(r1, 2) * Math.pow(Math.sin(pivotAngle), 2));
+        // Angle calculation from tools/laser.ipynb
+        double pivotAngle = 2.435184375290124;
 
+        double d = 0.1711585522257068;
 
-            // Find intersection points
-            Circle c = new Circle(0, 0, r1);
-            double[] intersectP = c.intersect(new Circle(tL, -yc, r2));
+        // Length from Astrobee pivot to target
+        double l = Math.sqrt(Math.pow(tL, 2) + Math.pow(yc, 2));
 
-            // Select the bigger y
-            double triBase = distance(0.1302, 0.1111, intersectP[2], intersectP[3]);
+        double lp = Math.sqrt(Math.pow(tL-navX, 2) + Math.pow(yc-navY, 2));
 
-            double angle = 2 * Math.asin((triBase / 2) / r1);
+        double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
+        double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
 
-            // Logging
-            String TAG = "computeXAngle";
-            Log.i(TAG, "l = " + l);
-            Log.i(TAG, "r2 = " + r2);
-            for (int i = 0; i < intersectP.length; i++) {
-                Log.i(TAG, "intersectP " + i + " = " + intersectP[i]);
-            }
-            Log.i(TAG, "triBase = " + triBase);
-            Log.i(TAG, "Angle = " + angle);
+        String TAG = "computeXAngle";
+        Log.i(TAG, "l = " + l);
+        Log.i(TAG, "lp = " + lp);
+        Log.i(TAG, "angle1 = " + angle1);
+        Log.i(TAG, "angle2 = " + angle2);
+        Log.i(TAG, "turn_angle = " + (angle1 - angle2));
 
-            return angle;
-        }
+        return angle1 - angle2;
+    }
 
-        // left right
-        public double computeYAngle() {
+    // left right
+    public double computeYAngle(double xc, double tL) {
+        double navX = 0.0572;
+        double navY = 0.1302;
 
-            // Angle calculation from tools/laser.ipynb
-            double pivotAngle = 2.727652176143348;
-            // Precomputed radius of Astrobee circle
-            double r1 = 0.14221068876846074;
-            // Length from Astrobee pivot to target
-            double l = Math.sqrt(Math.pow(tL, 2) + Math.pow(xc, 2));
-            // Radius of target circle
-            double r2 = r1 * Math.cos(pivotAngle) + Math.sqrt(Math.pow(l, 2) - Math.pow(r1, 2) * Math.pow(Math.sin(pivotAngle), 2));
+        // Angle calculation from tools/laser.ipynb
+        double pivotAngle = 2.727652176143348;
 
+        double d = 0.14221068876846074;
 
-            // Find intersection points
-            Circle c = new Circle(0, 0, r1);
-            double[] intersectP = c.intersect(new Circle(xc, tL, r2));
+        // Length from Astrobee pivot to target
+        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(tL, 2));
 
-            // Select the bigger x
-            double triBase = distance(0.0572, 0.1302, intersectP[0], intersectP[1]);
+        double lp = Math.sqrt(Math.pow(xc - navX, 2) + Math.pow(tL - navY, 2));
 
-            double angle = 2 * Math.asin((triBase / 2) / r1);
+        double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
+        double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
 
-            // Logging
-            String TAG = "computeYAngle";
-            Log.i(TAG, "l = " + l);
-            Log.i(TAG, "r2 = " + r2);
-            for (int i = 0; i < intersectP.length; i++) {
-                Log.i(TAG, "intersectP " + i + " = " + intersectP[i]);
-            }
-            Log.i(TAG, "triBase = " + triBase);
-            Log.i(TAG, "Angle = " + angle);
+        String TAG = "computeXAngle";
+        Log.i(TAG, "l = " + l);
+        Log.i(TAG, "lp = " + lp);
+        Log.i(TAG, "angle1 = " + angle1);
+        Log.i(TAG, "angle2 = " + angle2);
+        Log.i(TAG, "turn_angle = " + (angle1 - angle2));
 
-            return angle;
-        }
-
+        return angle1 - angle2;
     }
 
     private Quaternion eulerAngleToQuaternion(double xAngle, double yAngle, double zAngle) {
@@ -333,18 +269,21 @@ public class YourService extends KiboRpcService {
         move_to(11.2746, -9.92284, 5.29881, quaternion);
 
         // shoot laser
-        final Mat target = find_circle();
-        final Mat ud_target = undistortPoints(target);
+        try {
+            Thread.sleep(5000);
+        } catch (Exception e) {}
 
-        final AngleCalc ac = new AngleCalc(ud_target.get(0, 0));
-        final double xAngle = -ac.computeXAngle();
-        final double yAngle = -ac.computeYAngle();
+        Target target = new Target();
+        double[] c = target.getCordinates();
+        final double xAngle = -computeXAngle(c[2], c[1]);
+        final double yAngle = -computeYAngle(c[0], c[2]);
 
-        final Quaternion imageQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
-        final Quaternion qToTurn = combineQuaternion(imageQ, quaternion);
+        Quaternion imageQ = eulerAngleToQuaternion(xAngle, 0, yAngle - 0.03); // 0.03 magical offset
+        Quaternion qToTurn = combineQuaternion(imageQ, quaternion);
 
         move_to(11.2746, -9.92284, 5.29881, qToTurn);
         api.laserControl(true);
+
         api.takeTarget2Snapshot();
 
         // move to goal
