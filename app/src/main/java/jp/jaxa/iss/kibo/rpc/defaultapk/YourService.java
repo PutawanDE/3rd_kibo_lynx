@@ -90,10 +90,16 @@ public class YourService extends KiboRpcService {
 
             double[] center = {635.434258, 500.335102}; // principal point
             this.xc = ((target[0] - center[0]) * meterPx) - 0.0422 - xOffset;
+
             this.yc = -((target[1] - center[1]) * meterPx) + 0.0826 - yOffset;
+
+            // big yc case need to off set it back
+            if (this.yc > 0.065) {
+                this.yc += 0.0075; // offset it back
+            }
+
             this.tL = Math.abs(-10.581 - (-9.922840));
-
-
+            
             api.saveMatImage(api.getMatNavCam(), "target2");
             api.saveMatImage(img, "target2_c");
             api.saveMatImage(ud_img, "target2_ud");
@@ -308,14 +314,13 @@ public class YourService extends KiboRpcService {
         return vectorAngleDiff(vectorOrientation(q1), vectorOrientation(q2));
     }
 
-
     @Override
     protected void runPlan1() {
         api.startMission();
 
         // move to point A
         Quaternion quaternion = new Quaternion(0f, 0.707f, 0f, 0.707f);
-        move_to(10.71, -7.7, 4.48, new Quaternion(0, 0, 0, 1)); // test quaternion
+        move_to(10.71, -7.7, 4.48, quaternion); // test quaternion
         api.reportPoint1Arrival();
 
         // shoot laser
@@ -348,8 +353,7 @@ public class YourService extends KiboRpcService {
         Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
 
         int retry = 0;
-        boolean alrShoot = false;
-        while (retry < LOOP_MAX) {
+        while (retry <= LOOP_MAX) {
             move_to(11.2746, -9.92284, 5.29881, absoluteQ); // rotate astrobee
 
             // compare result with what we need
@@ -362,7 +366,14 @@ public class YourService extends KiboRpcService {
                 try {
                     Thread.sleep(500);
                 } catch (Exception e) {}
-                alrShoot = true;
+                api.laserControl(true);
+                break;
+            }
+            else if (retry == 3) {
+                // last resort shooting
+                try {
+                    Thread.sleep(500);
+                } catch (Exception e) {}
                 api.laserControl(true);
                 break;
             }
@@ -376,12 +387,6 @@ public class YourService extends KiboRpcService {
                     res.getPosition().toString(),
                     res.getOrientation().toString()
             ));
-        }
-
-        if (!alrShoot) {
-            // Last resort shooting
-            move_to(11.2746, -9.92284, 5.29881, absoluteQ); // rotate astrobee
-            api.laserControl(true);
         }
 
         api.takeTarget2Snapshot();
