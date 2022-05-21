@@ -2,23 +2,17 @@ package jp.jaxa.iss.kibo.rpc.defaultapk;
 
 import android.util.Log;
 
-import org.opencv.aruco.Aruco;
-import org.opencv.aruco.Dictionary;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
-
 import org.opencv.imgproc.Imgproc;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 import gov.nasa.arc.astrobee.Kinematics;
 import gov.nasa.arc.astrobee.Result;
 import gov.nasa.arc.astrobee.types.Point;
 import gov.nasa.arc.astrobee.types.Quaternion;
 import jp.jaxa.iss.kibo.rpc.api.KiboRpcService;
+
 
 /**
  * Class meant to handle commands from the Ground Data System and execute them in Astrobee
@@ -66,103 +60,6 @@ public class YourService extends KiboRpcService {
         Imgproc.undistort(img, ud_img, cameraMat, distCoeffs);
 
         return ud_img;
-    }
-
-    private double distance(double x0, double y0, double x1, double y1) {
-        return Math.sqrt(Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2));
-    }
-
-    class Target {
-        private double xc;
-        private double yc;
-        private double tL;
-
-        public Target() {
-            final int cX = 500;
-            final int cY = 500;
-            final double xOffset = 0.019;
-            final double yOffset = 0.016;
-
-            Mat img = new Mat(api.getMatNavCam(), new Rect(cX, cY, 330, 200));
-            Mat ud_img = undistortCroppedImg(img, cX, cY);
-            double meterPx = computeMeterPx(ud_img);
-            double[] target = findCircle(ud_img, cX, cY);
-
-            double[] center = {635.434258, 500.335102}; // principal point
-            this.xc = ((target[0] - center[0]) * meterPx) - 0.0422 - xOffset;
-
-            this.yc = -((target[1] - center[1]) * meterPx) + 0.0826 - yOffset;
-
-            // big yc case need to off set it back
-            if (this.yc > 0.065) {
-                this.yc += 0.0075; // offset it back
-            }
-
-            this.tL = Math.abs(-10.581 - (-9.922840));
-            
-            api.saveMatImage(api.getMatNavCam(), "target2");
-            api.saveMatImage(img, "target2_c");
-            api.saveMatImage(ud_img, "target2_ud");
-            String TAG = "Target";
-            Log.i(TAG, "meterPerPixel = " + meterPx);
-            Log.i(TAG, "target = " + Arrays.toString(target));
-            Log.i(TAG, "xc, yc, tL = " + xc + ", " + yc + ", " + tL);
-        }
-
-        public double[] getCordinates() {
-            return new double[]{xc, yc, tL};
-        }
-
-        private double computeMeterPx(Mat ud_img) {
-            String TAG = "computeMeterPx";
-
-            Mat ids = new Mat();
-            List<Mat> corners = new ArrayList<>();
-            final Dictionary dict = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
-
-            int counter = 0;
-            while (ids.rows() < 4 && counter < LOOP_MAX) { // try 3 until find all 4 ids
-                Aruco.detectMarkers(ud_img, dict, corners, ids); // find all ids
-                counter++;
-            }
-
-            for (int i = 0; i < corners.size(); i++) {
-                Mat p = corners.get(i);
-                for (int j = 0; j < p.cols(); j++) {
-                    double[] t = p.get(0, j);
-                    t[0] += 350;
-                    t[1] += 350;
-
-                    p.put(0, j, t[0], t[1]);
-                }
-            }
-
-            double sLen = 0;
-            for (int i = 0; i < corners.size(); i++) {
-                Mat p = corners.get(i);
-                double s1 = distance(p.get(0, 0)[0], p.get(0, 0)[1], p.get(0, 1)[0], p.get(0, 1)[1]);
-                double s2 = distance(p.get(0, 1)[0], p.get(0, 1)[1], p.get(0, 2)[0], p.get(0, 2)[1]);
-                double s3 = distance(p.get(0, 2)[0], p.get(0, 2)[1], p.get(0, 3)[0], p.get(0, 3)[1]);
-                double s4 = distance(p.get(0, 3)[0], p.get(0, 3)[1], p.get(0, 0)[0], p.get(0, 0)[1]);
-                double sAvg = (s1 + s2 + s3 + s4)/4;
-                sLen += sAvg;
-            }
-
-            Log.i(TAG, "sLen  = " + sLen / corners.size());
-
-            return 0.05 / (sLen / corners.size());
-        }
-
-        private double[] findCircle(Mat ud_img, int x, int y) {
-            Mat circle = new Mat();
-            Imgproc.HoughCircles(ud_img, circle, Imgproc.HOUGH_GRADIENT, 1, 300, 50, 30, 40, 50);
-
-            if (circle.empty())
-                return null;
-
-            double[] point = {circle.get(0, 0)[0] + x, circle.get(0, 0)[1] + y};
-            return point;
-        }
     }
 
     // down up
@@ -221,48 +118,6 @@ public class YourService extends KiboRpcService {
         return angle1 - angle2;
     }
 
-    private double vectorDot(double[] v1, double[] v2) {
-        double sum = 0;
-        for (int i = 0; i < v1.length; i++) {
-            sum += v1[i] * v2[i];
-        }
-        return sum;
-    }
-
-    private double[] scalarDot(double s, double[] v2) {
-        double[] res = new double[v2.length];
-        for (int i = 0; i < v2.length; i++) {
-            res[i] = s * v2[i];
-        }
-        return res;
-    }
-
-    private double[] vectorSum(double[] v1, double[] v2) {
-        // Vector must be same size
-        double[] res = new double[v2.length];
-        for (int i = 0; i < v1.length; i++) {
-            res[i] = v1[i] + v2[i];
-        }
-        return res;
-    }
-
-    private double[] vectorCross(double[] v1, double[] v2) {
-        // Vector must have length 3
-        double[] res = new double[3];
-        res[0] = v1[1] * v2[2] - v1[2] * v2[1];
-        res[1] = v1[2] * v2[0] - v1[0] * v2[2];
-        res[2] = v1[0] * v2[1] - v1[1] * v2[0];
-        return res;
-    }
-
-    private double vectorSize(double[] v) {
-        double sum = 0;
-        for (int i = 0; i < v.length; i++) {
-            sum += Math.pow(v[i], 2);
-        }
-        return Math.sqrt(sum);
-    }
-
     private Quaternion eulerAngleToQuaternion(double xAngle, double yAngle, double zAngle) {
         double c1 = Math.cos(yAngle / 2);
         double c2 = Math.cos(zAngle / 2);
@@ -281,32 +136,31 @@ public class YourService extends KiboRpcService {
 
     private Quaternion mutQuaternion(Quaternion q1, Quaternion q2) {
         double s1 = q1.getW();
-        double[] v1 = new double[]{q1.getX(), q1.getY(), q1.getZ()};
+        Vector3 v1 = new Vector3(q1.getX(), q1.getY(), q1.getZ());
         double s2 = q2.getW();
-        double[] v2 = new double[]{q2.getX(), q2.getY(), q2.getZ()};
+        Vector3 v2 = new Vector3(q2.getX(), q2.getY(), q2.getZ());
 
-        double[] a = vectorSum(scalarDot(s1, v2), scalarDot(s2, v1));
-        double[] b = vectorCross(v1, v2);
-        double[] res = vectorSum(a, b);
-        double w = s1*s2 - vectorDot(v1, v2);
-        return new Quaternion((float) res[0], (float) res[1], (float) res[2], (float) w);
+        Vector3 a = v2.scale(s1).sum(v1.scale(s2));
+        Vector3 b = v1.cross(v2);
+        Vector3 res = a.sum(b);
+        double w = s1*s2 - v1.dot(v2);
+        return new Quaternion((float) res.getX(), (float) res.getY(), (float) res.getZ(), (float) w);
     }
 
-    private double[] vectorOrientation(Quaternion q) {
-        double[] v = new double[]{1, 0, 0}; // (0, 0, 0, 1) quaternion -> vector
-        double[] u = new double[]{q.getX(), q.getY(), q.getZ()};
+    private Vector3 vectorOrientation(Quaternion q) {
+        Vector3 v = new Vector3(1, 0, 0); // (0, 0, 0, 1) quaternion -> vector
+        Vector3 u = new Vector3(q.getX(), q.getY(), q.getZ());
         double s = q.getW();
 
-        double[] a = scalarDot(2.0 * vectorDot(u, v), u);
-        double[] b = scalarDot(s * s - vectorDot(u, u), v);
-        double[] c = scalarDot(2.0 * s, vectorCross(u, v));
-        return vectorSum(vectorSum(a, b), c);
+        Vector3 a =  u.scale(2.0 * u.dot(v));
+        Vector3 b = v.scale(s*s - u.dot(u));
+        Vector3 c = u.cross(v).scale(2.0 * s);
+        return a.sum(b).sum(c);
     }
 
-    private double vectorAngleDiff(double[] v1, double[] v2) {
-        // Vector must have length 3
-        double a = vectorDot(v1, v2);
-        double b = vectorSize(v1) * vectorSize(v2);
+    private double vectorAngleDiff(Vector3 v1, Vector3 v2) {
+        double a = v1.dot(v2);
+        double b = v1.size() * v2.size();
         return Math.toDegrees(Math.acos(a/b));
     }
 
@@ -333,15 +187,22 @@ public class YourService extends KiboRpcService {
         quaternion = new Quaternion(0f, 0f, -0.707f, 0.707f);
         move_to(10.876214285714285, -8.5, 4.97063, quaternion);
         move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
-        move_to(11.2746, -9.92284, 5.29881, quaternion);
+
+        Point B =  new Point(11.2746, -9.92284, 5.35);
+        move_to(B.getX(), B.getY(), B.getZ(), quaternion);
 
         // shoot laser
         try {
             Thread.sleep(6000);
         } catch (Exception e) {}
 
-        String TAG = "Rotation";
-        Target target = new Target();
+        // finding target
+        final int cX = 500;
+        final int cY = 460;
+        Mat img = new Mat(api.getMatNavCam(), new Rect(cX, cY, 330, 200));
+        Mat ud_img = undistortCroppedImg(img, cX, cY);
+        Target target = new Target(ud_img, cX, cY);
+
         double[] c = target.getCordinates();
         final double xAngle = -computeXAngle(c[2], c[1]);
         final double yAngle = -computeYAngle(c[0], c[2]);
@@ -349,18 +210,26 @@ public class YourService extends KiboRpcService {
         Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
         Quaternion absoluteQ = mutQuaternion(relativeQ, quaternion);
 
+        String TAG = "Rotation";
         Log.i(TAG, "relativeQ = " + relativeQ.toString());
         Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
 
+        // try rotating to wanted angle and shoot laser
         int retry = 0;
         while (retry <= LOOP_MAX) {
-            move_to(11.2746, -9.92284, 5.29881, absoluteQ); // rotate astrobee
+            move_to(B.getX(), B.getY(), B.getZ(), absoluteQ); // rotate astrobee
 
             // compare result with what we need
             Kinematics res = api.getRobotKinematics();
             double angleDiff = compareQuaternion(absoluteQ, res.getOrientation());
 
             Log.i(TAG, String.format("angleDiff = %f", angleDiff));
+            Log.i(TAG, String.format("Result %d = %s, %s, %s",
+                    retry,
+                    res.getConfidence(),
+                    res.getPosition().toString(),
+                    res.getOrientation().toString()
+            ));
 
             if (angleDiff < 1.5) {
                 try {
@@ -378,15 +247,8 @@ public class YourService extends KiboRpcService {
                 break;
             }
 
-            move_to(11.2746, -9.92284, 5.29881, quaternion); // reset astrobee
-
+            move_to(B.getX(), B.getY(), B.getZ(), quaternion);; // reset astrobee
             retry++;
-            Log.i(TAG, String.format("Result %d = %s, %s, %s",
-                    retry,
-                    res.getConfidence(),
-                    res.getPosition().toString(),
-                    res.getOrientation().toString()
-            ));
         }
 
         api.takeTarget2Snapshot();
