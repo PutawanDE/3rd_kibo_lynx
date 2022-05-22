@@ -19,7 +19,7 @@ public class Target {
         final double navXOffset = -0.0422;
         final double navYOffset = 0.0826;
         final double xOffset = -0.019;
-        final double yOffset = -0.012;
+        final double yOffset = -0.016;
 
         double meterPx = computeMeterPx(ud_img);
         double[] target = findCircle(ud_img, cX, cY);
@@ -27,6 +27,10 @@ public class Target {
         double[] center = {635.434258, 500.335102}; // principal point
         this.xc = ((target[0] - center[0]) * meterPx) + navXOffset + xOffset;
         this.yc = -((target[1] - center[1]) * meterPx) + navYOffset + yOffset;
+
+        if (this.yc > 0.065) {
+            this.yc += 0.0075; // offset it back
+        }
 
         String TAG = "Target";
         Log.i(TAG, "meterPerPixel = " + meterPx);
@@ -57,17 +61,6 @@ public class Target {
         while (ids.rows() < 4 && counter < 3) { // 3 try until find all 4 ids
             Aruco.detectMarkers(ud_img, dict, corners, ids); // find all ids
             counter++;
-        }
-
-        for (int i = 0; i < corners.size(); i++) {
-            Mat p = corners.get(i);
-            for (int j = 0; j < p.cols(); j++) {
-                double[] t = p.get(0, j);
-                t[0] += 350;
-                t[1] += 350;
-
-                p.put(0, j, t[0], t[1]);
-            }
         }
 
         double sLen = 0;

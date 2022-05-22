@@ -13,7 +13,6 @@ import gov.nasa.arc.astrobee.types.Point;
 import gov.nasa.arc.astrobee.types.Quaternion;
 import jp.jaxa.iss.kibo.rpc.api.KiboRpcService;
 
-
 /**
  * Class meant to handle commands from the Ground Data System and execute them in Astrobee
  */
@@ -66,13 +65,12 @@ public class YourService extends KiboRpcService {
 
     // down angle
     private double computeXAngle(double l2t, double yc) {
-        double navX = 0.1302;
-        double navY = 0.1111;
+        final double navX = 0.1302;
+        final double navY = 0.1111;
 
         // Angle calculation from tools/laser.ipynb
-        double pivotAngle = 2.435184375290124;
-
-        double d = 0.1711585522257068;
+        final double pivotAngle = 2.435184375290124;
+        final double d = 0.1711585522257068;
 
         // Length from Astrobee pivot to target
         double l = Math.sqrt(Math.pow(l2t, 2) + Math.pow(yc, 2));
@@ -94,13 +92,12 @@ public class YourService extends KiboRpcService {
 
     // left angle
     private double computeYAngle(double xc, double l2t) {
-        double navX = 0.0572;
-        double navY = 0.1302;
+        final double navX = 0.0572;
+        final double navY = 0.1302;
 
         // Angle calculation from tools/laser.ipynb
-        double pivotAngle = 2.727652176143348;
-
-        double d = 0.14221068876846074;
+        final double pivotAngle = 2.727652176143348;
+        final double d = 0.14221068876846074;
 
         // Length from Astrobee pivot to target
         double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2t, 2));
@@ -190,7 +187,7 @@ public class YourService extends KiboRpcService {
         move_to(10.876214285714285, -8.5, 4.97063, quaternion);
         move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
 
-        Point B =  new Point(11.2746, -9.922840, 5.350);
+        Point B =  new Point(11.2746, -9.92284, 5.29881);
         move_to(B, quaternion);
 
         // shoot laser
@@ -200,7 +197,7 @@ public class YourService extends KiboRpcService {
 
         // finding target
         final int cX = 500;
-        final int cY = 460;
+        final int cY = 500;
         Mat img = new Mat(api.getMatNavCam(), new Rect(cX, cY, 330, 200));
         Mat ud_img = undistortCroppedImg(img, cX, cY);
         Target target = new Target(ud_img, cX, cY);
@@ -235,7 +232,7 @@ public class YourService extends KiboRpcService {
                     res.getOrientation().toString()
             ));
 
-            if (angleDiff < 1.5) {
+            if (angleDiff < 1) {
                 try {
                     Thread.sleep(500);
                 } catch (Exception e) {}
