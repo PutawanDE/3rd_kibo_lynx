@@ -210,9 +210,17 @@ public class YourService extends KiboRpcService {
         int retry = 0;
         while (retry <= LOOP_MAX) {
             // compute angle
-            final double l2t = Math.abs(-10.581 - (api.getRobotKinematics().getPosition().getY()));
-            final double xAngle = -computeXAngle(l2t, target.getY());
-            final double yAngle = -computeYAngle(target.getX(), l2t);
+            Point pos = api.getRobotKinematics().getPosition();
+            final double l2t = Math.abs(-10.581 - (pos.getY()));
+            final double xOffset = -(B.getX() - pos.getX());
+            final double yOffset = B.getZ() - pos.getZ();
+
+            Log.i("Dynamic Pos", String.format("l2t = %f", l2t));
+            Log.i("Dynamic Pos", String.format("xOffset = %f", xOffset));
+            Log.i("Dynamic Pos", String.format("yOffset = %f", yOffset));
+
+            final double xAngle = -computeXAngle(l2t, target.getY() + yOffset);
+            final double yAngle = -computeYAngle(target.getX() + xOffset, l2t);
 
             Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
             Quaternion absoluteQ = mutQuaternion(relativeQ, quaternion);
