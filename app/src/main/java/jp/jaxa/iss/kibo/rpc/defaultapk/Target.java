@@ -12,16 +12,15 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Target {
-    private double xc;
-    private double yc;
-    private double tL;
+    private double xc; // x coordinate
+    private double yc; // y coordinate
+    private double l2t; // length to target
 
     public Target(Mat ud_img, int cX, int cY) {
-
         final double navXOffset = -0.0422;
         final double navYOffset = 0.0826;
         final double xOffset = -0.019;
-        final double yOffset = -0.016;
+        final double yOffset = -0.014;
 
         double meterPx = computeMeterPx(ud_img);
         double[] target = findCircle(ud_img, cX, cY);
@@ -29,16 +28,16 @@ public class Target {
         double[] center = {635.434258, 500.335102}; // principal point
         this.xc = ((target[0] - center[0]) * meterPx) + navXOffset + xOffset;
         this.yc = -((target[1] - center[1]) * meterPx) + navYOffset + yOffset;
-        this.tL = Math.abs(-10.581 - (-9.922840));
+        this.l2t = Math.abs(-10.581 - (-9.922));
 
         String TAG = "Target";
         Log.i(TAG, "meterPerPixel = " + meterPx);
         Log.i(TAG, "target = " + Arrays.toString(target));
-        Log.i(TAG, "xc, yc, tL = " + xc + ", " + yc + ", " + tL);
+        Log.i(TAG, "xc, yc, tL = " + xc + ", " + yc + ", " + l2t);
     }
 
     public double[] getCordinates() {
-        return new double[]{xc, yc, tL};
+        return new double[]{xc, yc, l2t};
     }
 
     private double distance(double x0, double y0, double x1, double y1) {

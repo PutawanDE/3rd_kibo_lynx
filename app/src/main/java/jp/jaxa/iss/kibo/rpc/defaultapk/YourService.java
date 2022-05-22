@@ -62,8 +62,8 @@ public class YourService extends KiboRpcService {
         return ud_img;
     }
 
-    // down up
-    private double computeXAngle(double tL, double yc) {
+    // down angle
+    private double computeXAngle(double l2t, double yc) {
         double navX = 0.1302;
         double navY = 0.1111;
 
@@ -73,9 +73,9 @@ public class YourService extends KiboRpcService {
         double d = 0.1711585522257068;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(tL, 2) + Math.pow(yc, 2));
+        double l = Math.sqrt(Math.pow(l2t, 2) + Math.pow(yc, 2));
 
-        double lp = Math.sqrt(Math.pow(tL-navX, 2) + Math.pow(yc-navY, 2));
+        double lp = Math.sqrt(Math.pow(l2t-navX, 2) + Math.pow(yc-navY, 2));
 
         double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
@@ -90,8 +90,8 @@ public class YourService extends KiboRpcService {
         return angle1 - angle2;
     }
 
-    // left right
-    private double computeYAngle(double xc, double tL) {
+    // left angle
+    private double computeYAngle(double xc, double l2t) {
         double navX = 0.0572;
         double navY = 0.1302;
 
@@ -101,9 +101,9 @@ public class YourService extends KiboRpcService {
         double d = 0.14221068876846074;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(tL, 2));
+        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2t, 2));
 
-        double lp = Math.sqrt(Math.pow(xc - navX, 2) + Math.pow(tL - navY, 2));
+        double lp = Math.sqrt(Math.pow(xc - navX, 2) + Math.pow(l2t - navY, 2));
 
         double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
@@ -188,7 +188,7 @@ public class YourService extends KiboRpcService {
         move_to(10.876214285714285, -8.5, 4.97063, quaternion);
         move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
 
-        Point B =  new Point(11.2746, -9.92284, 5.35);
+        Point B =  new Point(11.274, -9.922, 5.350);
         move_to(B.getX(), B.getY(), B.getZ(), quaternion);
 
         // shoot laser
@@ -202,6 +202,7 @@ public class YourService extends KiboRpcService {
         Mat img = new Mat(api.getMatNavCam(), new Rect(cX, cY, 330, 200));
         Mat ud_img = undistortCroppedImg(img, cX, cY);
         Target target = new Target(ud_img, cX, cY);
+        api.saveMatImage(ud_img, "ud_img");
 
         double[] c = target.getCordinates();
         final double xAngle = -computeXAngle(c[2], c[1]);
