@@ -18,12 +18,15 @@ public class Target {
     public Target(Mat ud_img, int cX, int cY) {
         final double navXOffset = -0.0422;
         final double navYOffset = 0.0826;
+        final double xOffset = -0.019;
+        final double yOffset = -0.012;
+
         double meterPx = computeMeterPx(ud_img);
         double[] target = findCircle(ud_img, cX, cY);
 
         double[] center = {635.434258, 500.335102}; // principal point
-        this.xc = ((target[0] - center[0]) * meterPx) + navXOffset;
-        this.yc = -((target[1] - center[1]) * meterPx) + navYOffset;
+        this.xc = ((target[0] - center[0]) * meterPx) + navXOffset + xOffset;
+        this.yc = -((target[1] - center[1]) * meterPx) + navYOffset + yOffset;
 
         String TAG = "Target";
         Log.i(TAG, "meterPerPixel = " + meterPx);

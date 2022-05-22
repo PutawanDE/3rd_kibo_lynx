@@ -190,7 +190,7 @@ public class YourService extends KiboRpcService {
         move_to(10.876214285714285, -8.5, 4.97063, quaternion);
         move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
 
-        Point B =  new Point(11.2746, -9.922, 5.350);
+        Point B =  new Point(11.2746, -9.922840, 5.350);
         move_to(B, quaternion);
 
         // shoot laser
@@ -206,29 +206,21 @@ public class YourService extends KiboRpcService {
         Target target = new Target(ud_img, cX, cY);
         api.saveMatImage(ud_img, "ud_img");
 
+        // compute angle
+        final double l2t = Math.abs(-10.581 - (B.getY()));
+        final double xAngle = -computeXAngle(l2t, target.getY());
+        final double yAngle = -computeYAngle(target.getX(), l2t);
+
+        Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
+        Quaternion absoluteQ = mutQuaternion(relativeQ, quaternion);
+
+        String TAG = "Rotation";
+        Log.i(TAG, "relativeQ = " + relativeQ.toString());
+        Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
+
         // try rotating to wanted angle and shoot laser
         int retry = 0;
         while (retry <= LOOP_MAX) {
-            // compute angle
-            Point pos = api.getRobotKinematics().getPosition();
-            final double l2t = Math.abs(-10.581 - (pos.getY()));
-            final double xOffset = -(B.getX() - pos.getX());
-            final double yOffset = B.getZ() - pos.getZ();
-
-            Log.i("Dynamic Pos", String.format("l2t = %f", l2t));
-            Log.i("Dynamic Pos", String.format("xOffset = %f", xOffset));
-            Log.i("Dynamic Pos", String.format("yOffset = %f", yOffset));
-
-            final double xAngle = -computeXAngle(l2t, target.getY() + yOffset);
-            final double yAngle = -computeYAngle(target.getX() + xOffset, l2t);
-
-            Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
-            Quaternion absoluteQ = mutQuaternion(relativeQ, quaternion);
-
-            String TAG = "Rotation";
-            Log.i(TAG, "relativeQ = " + relativeQ.toString());
-            Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
-
             move_to(B, absoluteQ); // rotate astrobee
 
             // compare result with what we need
