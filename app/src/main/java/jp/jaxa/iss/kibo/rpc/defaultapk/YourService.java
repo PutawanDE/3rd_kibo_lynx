@@ -33,16 +33,18 @@ public class YourService extends KiboRpcService {
             -0.164787, 0.020375, -0.001572, -0.000369, 0.000000
     };
 
-    private void move_to(double x, double y, double z, Quaternion q) {
-        final Point p = new Point(x, y, z);
-
+    private void move_to(Point p, Quaternion q) {
         int counter = 0;
         Result result;
-
         do {
             result = api.moveTo(p, q, true);
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
+    }
+
+    private void move_to(double x, double y, double z, Quaternion q) {
+        final Point p = new Point(x, y, z);
+        move_to(p, q);
     }
 
     private Mat undistortCroppedImg(Mat img, int x, int y) {
@@ -188,8 +190,8 @@ public class YourService extends KiboRpcService {
         move_to(10.876214285714285, -8.5, 4.97063, quaternion);
         move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
 
-        Point B =  new Point(11.274, -9.922, 5.350);
-        move_to(B.getX(), B.getY(), B.getZ(), quaternion);
+        Point B =  new Point(11.2746, -9.922, 5.350);
+        move_to(B, quaternion);
 
         // shoot laser
         try {
@@ -204,21 +206,22 @@ public class YourService extends KiboRpcService {
         Target target = new Target(ud_img, cX, cY);
         api.saveMatImage(ud_img, "ud_img");
 
-        double[] c = target.getCordinates();
-        final double xAngle = -computeXAngle(c[2], c[1]);
-        final double yAngle = -computeYAngle(c[0], c[2]);
-
-        Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
-        Quaternion absoluteQ = mutQuaternion(relativeQ, quaternion);
-
-        String TAG = "Rotation";
-        Log.i(TAG, "relativeQ = " + relativeQ.toString());
-        Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
-
         // try rotating to wanted angle and shoot laser
         int retry = 0;
         while (retry <= LOOP_MAX) {
-            move_to(B.getX(), B.getY(), B.getZ(), absoluteQ); // rotate astrobee
+            // compute angle
+            final double l2t = Math.abs(-10.581 - (api.getRobotKinematics().getPosition().getY()));
+            final double xAngle = -computeXAngle(l2t, target.getY());
+            final double yAngle = -computeYAngle(target.getX(), l2t);
+
+            Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
+            Quaternion absoluteQ = mutQuaternion(relativeQ, quaternion);
+
+            String TAG = "Rotation";
+            Log.i(TAG, "relativeQ = " + relativeQ.toString());
+            Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
+
+            move_to(B, absoluteQ); // rotate astrobee
 
             // compare result with what we need
             Kinematics res = api.getRobotKinematics();
@@ -248,7 +251,7 @@ public class YourService extends KiboRpcService {
                 break;
             }
 
-            move_to(B.getX(), B.getY(), B.getZ(), quaternion);; // reset astrobee
+            move_to(B, quaternion);; // reset astrobee
             retry++;
         }
 
