@@ -26,8 +26,9 @@ public class NavCam {
     private final int cropPic_y = 350;
     private static double arTag_sizePx;
     private static double meter_perPx;
-
     private final int NAV_LOOP_MAX = 4;
+
+    private Mat CenterTarget;
 
 
     public NavCam(){
@@ -165,7 +166,7 @@ public class NavCam {
             org.opencv.core.Point center = new org.opencv.core.Point(Math.round(c[0]), Math.round(c[1]));
 
             Imgproc.circle(ArucoDetectedCenter, center, 1, new Scalar(255, 0, 255), 3, 8, 0);
-//            api.saveMatImage(ArucoDetectedCenter, (System.currentTimeMillis() - debug_Timestart) + " ArucoDetectedCenter.png");
+            CenterTarget =  (ArucoDetectedCenter);
 
             double[] point = {center.x + cropPic_x, center.y + cropPic_y};
             out.put(0, 0, point);
@@ -219,6 +220,9 @@ public class NavCam {
         }
     }
 
+    public Mat getCenterTarget(){
+        return CenterTarget;
+    }
     public static double getArTag_sizePx(){
         return arTag_sizePx;
     }
