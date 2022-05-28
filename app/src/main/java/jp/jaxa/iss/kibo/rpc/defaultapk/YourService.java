@@ -96,7 +96,8 @@ public class YourService extends KiboRpcService {
              // AI aim and shoot
              int aim_try = 0;
              do {
-                 aim_Succeed = aim_shoot("A");
+                 Quaternion q_target1 = new Quaternion(0f, 0.707f, 0f, 0.707f);
+                 aim_Succeed = move_to(point_A_to_shoot_target1, q_target1);
                  aim_try++;
              }while (!aim_Succeed && aim_try < LOOP_MAX );
 
@@ -162,7 +163,7 @@ public class YourService extends KiboRpcService {
             int aim_try = 0;
 
             do {// AI aim and shoot
-                aim_Succeed = aim_shoot("B");
+                aim_Succeed = aim_shoot();
                 aim_try++;
             }while (!aim_Succeed && aim_try < LOOP_MAX );
             Log.i(TAG, "aim status = "  +" :" + aim_Succeed);
@@ -256,18 +257,10 @@ public class YourService extends KiboRpcService {
 //
 //    }
 
-    private boolean  aim_shoot(String targetType){
+    private boolean  aim_shoot(){
         final String TAG = "aim_shoot";
         boolean enable_aim = true;
         try {
-
-            if (targetType.equals("A")){
-                Quaternion q_target1 = new Quaternion(0f, 0.707f, 0f, 0.707f);
-                return move_to(point_A_to_shoot_target1, q_target1);
-            }
-            else if(targetType.equals("B")){
-
-
                 Mat buffer =  api.getMatNavCam();
                 api.saveMatImage(buffer,  (System.currentTimeMillis()-debug_Timestart )+" Point B buffer.png" );
 
@@ -277,16 +270,14 @@ public class YourService extends KiboRpcService {
 
                 Mat undistort_Cam = camArTag.undistortPicture(pic_cam);
                 Mat  undistort_AR_Center = camArTag.findARtag(undistort_Cam);
-                double[] target = undistort_AR_Center.get(0, 0);
+                double[] targetPosition = undistort_AR_Center.get(0, 0);
 
-                Aimer aimer = new Aimer(NavCam.getArTag_sizePx() , NavCam.getMeter_perPx() , target[0]  , target[1] );
-                double[] angleToTurn = aimer.pixelDistanceToAngle(undistort_AR_Center.get(0, 0));
+                Aimer aimer = new Aimer(NavCam.getArTag_sizePx() , NavCam.getMeter_perPx() );
+                double[] angleToTurn = aimer.pixelDistanceToAngle(targetPosition);
 
                 if(enable_aim) {  // turn or move kibo to aim
                     Quaternion relativeQ  = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
                     Quaternion qToTurn_Target2 = combineQuaternion(relativeQ , B_quaternion);
-
-
                     Log.i(TAG, "relativeQ = " + relativeQ.toString());
                     Log.i(TAG, "qToTurn_Target2 = " + qToTurn_Target2.toString());
 
@@ -320,12 +311,6 @@ public class YourService extends KiboRpcService {
                     }
                 }
                 return  true;
-            }else {
-                Log.i(FailTAG, "aim_shoot mode Fail");
-                return false;
-            }
-
-
         }catch (Exception e){
             Log.i(FailTAG, "aim_shoot =" + e);
             Log.i(TAG, "Fail aim_shoot =" + e);

@@ -9,24 +9,23 @@ public class Aimer {
 
     private final double arTag_sizePx;
     private final double meter_perPx;
-    private double xDistance;
-    private double yDistance;
-    private double centerKibo2target_x;
-    private double centerKibo2target_y;
+    private double laser2target_x = 0;
+    private double laser2target_y = 0;
 
     private final double laser_depth  =  0.1302;
+    private final double laser_width = 0.0572;
+    private final double laser_high = 0.1111;
     private final double cam_width  = -0.0422;
     private final double cam_high  = 0.0826;
 
 
-    public Aimer(double arTag_sizePx , double  meter_perPx,double xDistance , double  yDistance) {
+    public Aimer(double arTag_sizePx , double  meter_perPx ) {
         this.arTag_sizePx = arTag_sizePx;
         this.meter_perPx = meter_perPx;
-        this.xDistance = xDistance;
-        this.yDistance = yDistance;
+
     }
 
-    public double[] pixelDistanceToAngle(double[] target ) {
+    public double[] pixelDistanceToAngle(double[] targetPosition ) {
         final String TAG = "pixelDistanceToAngle";
         Log.i(TAG, "================== pixelDistanceToAngle ==================");
         final double[] ref  = {635.434258, 500.335102}; // original
@@ -42,25 +41,33 @@ public class Aimer {
         Log.i(TAG, "cam2walldis=" + cam2walldis);
         Log.i(TAG, "l2w = " + l2w);
 
+        double cam_target_px_x = (targetPosition[0]) - ref[0];
+        double cam_target_px_y = ref[1] - (targetPosition[1]);
+        Log.i(TAG, "cam_target_px_x=" + cam_target_px_x);
+        Log.i(TAG, "cam_target_px_y=" + cam_target_px_y);
 
-        xDistance = (target[0]) - ref[0];
-        yDistance = ref[1] - (target[1]);
-        Log.i(TAG, "xDistance=" + xDistance);
-        Log.i(TAG, "yDistance=" + yDistance);
+        double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) ;
+        double cam_target_dis_y = ( cam_target_px_y * meter_perPx ) ;
+        Log.i(TAG, "cam_target_dis_x=" + cam_target_dis_x);
+        Log.i(TAG, "cam_target_dis_y=" + cam_target_dis_y);
 
+        laser2target_x = cam_target_dis_x -  ( cam_width +  laser_width );
+        laser2target_y = cam_target_dis_y - (laser_high - cam_high );
+        Log.i(TAG, "laser2target_x=" + laser2target_x);
+        Log.i(TAG, "laser2target_y=" + laser2target_y);
 
-        centerKibo2target_x = ( xDistance * meter_perPx ) + cam_width + xOffset;
-        centerKibo2target_y = ( yDistance * meter_perPx ) + cam_high - yOffset;
+        double centerKibo2target_x = cam_target_dis_x + cam_width + xOffset;
+        double centerKibo2target_y = cam_target_dis_y + cam_high - yOffset;
         Log.i(TAG, "centerKibo2target_x (m)= " + centerKibo2target_x);
         Log.i(TAG, "centerKibo2target_y (m)= " + centerKibo2target_y);
 
         //########  horizonAngle axis #######
-        double horizonAngle = horizonAngle_axis(l2w,centerKibo2target_x);
+        double horizonAngle = horizonAngle_axis(l2w, centerKibo2target_x);
         Log.i(TAG, "horizonAngle(x)= " + horizonAngle);
         //###################################
 
         //########  verticalAngle axis #######
-        double verticalAngle = verticalAngle_axis(l2w,centerKibo2target_y);
+        double verticalAngle = verticalAngle_axis(l2w, centerKibo2target_y);
         Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
         //###################################
 
@@ -75,7 +82,7 @@ public class Aimer {
     private double horizonAngle_axis(double l2t ,double xc) {
         String TAG = "horizonAngle_axis";
 
-        double laser_width = 0.0572;
+
         double laser_oblique_x = 0.14221068876846074;
 
         // Angle calculation from tools/laser.ipynb
@@ -95,7 +102,8 @@ public class Aimer {
 
         double horizonAngle = (angle1 - angle2);
 
-        if(centerKibo2target_x < 0){
+        if(laser2target_x < 0){
+            Log.i(TAG, "target on left laser ");
             Log.i(TAG, "horizonAngle are negative");
             horizonAngle =   horizonAngle * -1;
         }
@@ -107,7 +115,7 @@ public class Aimer {
     // vertical angle
     private double verticalAngle_axis(double l2t, double yc) {
         String TAG = "verticalAngle_axis";
-        double laser_high = 0.1111;
+
         double laser_oblique_y = 0.1711585522257068;
 
         // Angle calculation from tools/laser.ipynb
@@ -127,7 +135,8 @@ public class Aimer {
 
         double verticalAngle = (angle1 - angle2);
 
-        if(centerKibo2target_y < 0){
+        if(laser2target_y < 0){
+            Log.i(TAG, "target lower than laser ");
             Log.i(TAG, "verticalAngle are negative");
             verticalAngle =   verticalAngle * -1;
         }
