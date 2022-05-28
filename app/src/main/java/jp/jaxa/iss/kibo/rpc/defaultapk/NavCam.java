@@ -27,11 +27,10 @@ public class NavCam {
     private static double arTag_sizePx;
     private static double meter_perPx;
 
-    private int LOOP_MAX;
+    private final int NAV_LOOP_MAX = 4;
 
 
-    public NavCam(int LOOP_MAX){
-        this.LOOP_MAX = LOOP_MAX;
+    public NavCam(){
     }
     class arTag_data {
         double size_x, size_y, imagePoint_x, imagePoint_y;
@@ -96,7 +95,7 @@ public class NavCam {
         int counter = 0;
         Mat cropPic = new Mat(undistortPic, new Rect(cropPic_x, cropPic_y, 600, 360));
 
-        while (ids.rows() != 4 && counter < LOOP_MAX) { // try 3 until find all 4 ids
+        while (ids.rows() != 4 && counter < NAV_LOOP_MAX) { // try 4 until find all 4 ids
             //############ detect Markers ############
             Aruco.detectMarkers(cropPic, bluePrint, corners, ids); // find all ids
             //########################
