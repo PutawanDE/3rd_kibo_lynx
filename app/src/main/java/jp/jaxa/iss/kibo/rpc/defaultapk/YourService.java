@@ -272,6 +272,8 @@ public class YourService extends KiboRpcService {
                 Mat undistort_Cam = camArTag.undistortPicture(pic_cam);
                 Mat  undistort_AR_Center = camArTag.findARtag(undistort_Cam);
 
+                api.saveMatImage(camArTag.getCenterTarget(),  (System.currentTimeMillis()-debug_Timestart )+" ArucoDetectedCenter.png" );
+
                 double[] targetPosition = undistort_AR_Center.get(0, 0);
 
                 Aimer aimer = new Aimer(NavCam.getArTag_sizePx() , NavCam.getMeter_perPx() );
