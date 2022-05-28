@@ -34,8 +34,8 @@ public class Aimer {
 //        final double focusCamera = 4.161542;
         final double cam_depth = 0.1177;
 
-        final double xOffset = -0.0103;
-        final double yOffset = 0.005;
+        final double xOffset = -0.0103 + 0.0015;
+        final double yOffset = 0.005 + 0.001;
 
         double cam2walldis = focusCamera * 5 / arTag_sizePx;
         double l2w =  cam2walldis - ( laser_depth - cam_depth);
