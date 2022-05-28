@@ -29,14 +29,22 @@ public class Aimer {
         final String TAG = "pixelDistanceToAngle";
         Log.i(TAG, "================== pixelDistanceToAngle ==================");
         final double[] ref  = {635.434258, 500.335102}; // original
-        final double focusCamera = 4.161542;
+        final double focusCamera = 5.34765913;
+
+//        final double focusCamera = 4.161542;
         final double cam_depth = 0.1177;
 
-        final double xOffset = -0.011;
-        final double yOffset = -0.053;
+        final double xOffset = -0.009;//
+        final double yOffset =  0.004;//
 
         double cam2walldis = focusCamera * 5 / arTag_sizePx;
         double l2w =  cam2walldis - ( laser_depth - cam_depth);
+
+        if( l2w < 0.60 || l2w > 0.70){
+            Log.i(TAG, "l2w out of range =" + l2w);
+            Log.i(TAG, "use fixed range = 0.65816 ");
+            l2w = 0.65816;
+        }
 
         Log.i(TAG, "cam2walldis=" + cam2walldis);
         Log.i(TAG, "l2w = " + l2w);
@@ -46,8 +54,8 @@ public class Aimer {
         Log.i(TAG, "cam_target_px_x=" + cam_target_px_x);
         Log.i(TAG, "cam_target_px_y=" + cam_target_px_y);
 
-        double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) ;
-        double cam_target_dis_y = ( cam_target_px_y * meter_perPx ) ;
+        double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) + xOffset ;
+        double cam_target_dis_y = ( cam_target_px_y * meter_perPx ) - yOffset;
         Log.i(TAG, "cam_target_dis_x=" + cam_target_dis_x);
         Log.i(TAG, "cam_target_dis_y=" + cam_target_dis_y);
 
@@ -56,8 +64,8 @@ public class Aimer {
         Log.i(TAG, "laser2target_x=" + laser2target_x);
         Log.i(TAG, "laser2target_y=" + laser2target_y);
 
-        double centerKibo2target_x = cam_target_dis_x + cam_width + xOffset;
-        double centerKibo2target_y = cam_target_dis_y + cam_high - yOffset;
+        double centerKibo2target_x = cam_target_dis_x + cam_width;
+        double centerKibo2target_y = cam_target_dis_y + cam_high;
         Log.i(TAG, "centerKibo2target_x (m)= " + centerKibo2target_x);
         Log.i(TAG, "centerKibo2target_y (m)= " + centerKibo2target_y);
 
@@ -102,7 +110,7 @@ public class Aimer {
 
         double horizonAngle = (angle1 - angle2);
 
-        if(laser2target_x < 0){
+        if(laser2target_x > 0){
             Log.i(TAG, "target on left laser ");
             Log.i(TAG, "horizonAngle are negative");
             horizonAngle =   horizonAngle * -1;
