@@ -24,7 +24,7 @@ import static org.opencv.imgproc.Imgproc.undistort;
 
 public class YourService extends KiboRpcService {
 
-    final int LOOP_MAX = 3;
+    final int LOOP_MAX = 4;
     boolean check_point_A = false;
     boolean check_target_1 = false;
     boolean check_point_B = false;
@@ -287,6 +287,7 @@ public class YourService extends KiboRpcService {
 
                     // try rotating to wanted angle and shoot laser
                     int retry = 0;
+                    double angleDiffOld = 90;
                     while (retry <= LOOP_MAX) {
                         move_to(point_B_to_shoot_target2 , qToTurn_Target2); // rotate astrobee
 
@@ -297,20 +298,27 @@ public class YourService extends KiboRpcService {
                         Log.i(TAG, String.format("angleDiff = %f", angleDiff));
                         Log.i(TAG, String.format("Result %d = %s, %s, %s", retry, res.getConfidence(), res.getPosition().toString(), res.getOrientation().toString()));
 
-                        if (angleDiff < 1) {
+                        if (angleDiff < 0.3) {
                             try {
+                                Log.i(TAG,"angleDiff < 0.3");
+                                Thread.sleep(500);
+                            } catch (Exception ignored) {}
+                            break;
+                        }else if(angleDiff < 1 && angleDiff < angleDiffOld ){
+                            try {
+                                Log.i(TAG,"angleDiff better");
                                 Thread.sleep(500);
                             } catch (Exception ignored) {}
                             break;
                         }
-                        else if (retry == 3) {
+                        else if (retry == 4) {
                             try {
-                                Log.i(TAG,"retry == 3");
+                                Log.i(TAG,"retry == 4");
                                 Thread.sleep(500);
                             } catch (Exception ignored) {}
                             break;
                         }
-
+                        angleDiffOld = angleDiff;
                         move_to(point_B_to_shoot_target2, B_quaternion); // reset astrobee
                         retry++;
                     }
