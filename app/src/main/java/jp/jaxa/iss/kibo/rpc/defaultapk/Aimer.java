@@ -87,7 +87,7 @@ public class Aimer {
 
 
     // horizon angle
-    private double horizonAngle_axis(double l2t ,double xc) {
+    private double horizonAngle_axis(double l2w ,double xc) {
         String TAG = "horizonAngle_axis";
 
 
@@ -97,8 +97,8 @@ public class Aimer {
         final double pivotAngle = 2.727652176143348;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2t, 2));
-        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(l2t - laser_depth, 2));
+        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2w, 2));
+        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(l2w - laser_depth, 2));
 
         double angle1  = Math.acos((Math.pow(laser_oblique_x, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2* laser_oblique_x *l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((laser_oblique_x *Math.sin(pivotAngle))/l);
@@ -124,7 +124,7 @@ public class Aimer {
     }
 
     // vertical angle
-    private double verticalAngle_axis(double l2t, double yc) {
+    private double verticalAngle_axis(double l2w, double yc) {
         String TAG = "verticalAngle_axis";
 
         double laser_oblique_y = 0.1711585522257068;
@@ -133,8 +133,8 @@ public class Aimer {
         final double pivotAngle = 2.435184375290124;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(l2t, 2) + Math.pow(yc, 2));
-        double lp = Math.sqrt(Math.pow(l2t-laser_depth, 2) + Math.pow(yc- laser_high, 2));
+        double l = Math.sqrt(Math.pow(l2w, 2) + Math.pow(yc, 2));
+        double lp = Math.sqrt(Math.pow(l2w-laser_depth, 2) + Math.pow(yc- laser_high, 2));
 
         double angle1  = Math.acos((Math.pow(laser_oblique_y, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2* laser_oblique_y *l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((laser_oblique_y *Math.sin(pivotAngle))/l);
