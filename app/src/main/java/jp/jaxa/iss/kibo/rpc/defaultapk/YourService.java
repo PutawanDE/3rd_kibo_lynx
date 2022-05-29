@@ -298,13 +298,14 @@ public class YourService extends KiboRpcService {
                         Log.i(TAG, String.format("angleDiff = %f", angleDiff));
                         Log.i(TAG, String.format("Result %d = %s, %s, %s", retry, res.getConfidence(), res.getPosition().toString(), res.getOrientation().toString()));
 
-                        if (angleDiff < 0.3) {
+                        if (angleDiff < 0.4) {
                             try {
-                                Log.i(TAG,"angleDiff < 0.3");
+                                Log.i(TAG,"angleDiff < 0.4");
                                 Thread.sleep(500);
                             } catch (Exception ignored) {}
                             break;
-                        }else if(angleDiff < 1 && angleDiff < angleDiffOld ){
+                        }
+                        else if( angleDiffOld < 1 && angleDiff < angleDiffOld ){
                             try {
                                 Log.i(TAG,"angleDiff better");
                                 Thread.sleep(500);
@@ -313,7 +314,7 @@ public class YourService extends KiboRpcService {
                         }
                         else if (retry == 4) {
                             try {
-                                Log.i(TAG,"retry == 4");
+                                Log.i(TAG,"retry == 4 out of bound");
                                 Thread.sleep(500);
                             } catch (Exception ignored) {}
                             break;
