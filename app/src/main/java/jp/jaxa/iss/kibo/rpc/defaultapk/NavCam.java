@@ -25,7 +25,8 @@ public class NavCam {
     private final int cropPic_x = 350;
     private final int cropPic_y = 350;
     private static double arTag_sizePx;
-    private static double meter_perPx;
+    private static double meter_perPx_x;
+    private static double meter_perPx_y;
     private final int NAV_LOOP_MAX = 4;
 
     private Mat CenterTarget;
@@ -124,12 +125,19 @@ public class NavCam {
             Mat detectedMarkerImg = cropPic.clone();
             Aruco.drawDetectedMarkers(detectedMarkerImg,corners, ids, new Scalar(0,255,255) );
 
-            arTag_sizePx = (ar_x_avg_px/4 + ar_y_avg_px/4)  / 2  ;
+            double arTag_sizePx_x = (ar_x_avg_px / 4);
+            double arTag_sizePx_y = (ar_y_avg_px / 4);
 
-            meter_perPx = 0.05 / arTag_sizePx;
+            arTag_sizePx = ( arTag_sizePx_x + arTag_sizePx_y ) /2;
 
-            Log.i(TAG, "arTag_sizePx : " + arTag_sizePx );
-            Log.i(TAG, "meter_perPx : " + meter_perPx );
+            meter_perPx_x = 0.05 / arTag_sizePx_x;
+            meter_perPx_y = 0.05 / arTag_sizePx_y;
+
+            Log.i(TAG, "arTag_sizePx (avg) : " + arTag_sizePx );
+            Log.i(TAG, "arTag_sizePx (x) : " + arTag_sizePx_x );
+            Log.i(TAG, "arTag_sizePx (y) : " + arTag_sizePx_y );
+            Log.i(TAG, "meter_perPx (x) : " + meter_perPx_x );
+            Log.i(TAG, "meter_perPx (y) : " + meter_perPx_y );
             Log.i(TAG, "Center x : " + (arTag[0].imagePoint_x + arTag[1].imagePoint_x + arTag[2].imagePoint_x + arTag[3].imagePoint_x) / 4.0f );
             Log.i(TAG, "Center y : " + (arTag[0].imagePoint_y + arTag[1].imagePoint_y + arTag[2].imagePoint_y + arTag[3].imagePoint_y ) / 4.0f );
 
@@ -144,7 +152,6 @@ public class NavCam {
             return undistortPic;
         }
     }
-
 
     private Mat findCenterTarget_Cycle(Mat pic) {
         final String TAG = "findTargetCenter";
@@ -184,7 +191,6 @@ public class NavCam {
         }
 
     }
-
 
     public Mat undistortPicture(Mat pic) {
         final String TAG = "undistortPic";
@@ -226,8 +232,8 @@ public class NavCam {
     public static double getArTag_sizePx(){
         return arTag_sizePx;
     }
-    public static double getMeter_perPx(){
-        return meter_perPx;
+    public static double[] getMeter_perPx(){
+        return new double[]{meter_perPx_x,meter_perPx_y};
     }
     public static boolean FailtoFindTarget(){
         return FAIL_to_Find_TARGET;

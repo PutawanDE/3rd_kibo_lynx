@@ -8,7 +8,7 @@ import java.util.Arrays;
 public class Aimer {
 
     private final double arTag_sizePx;
-    private final double meter_perPx;
+    private final double[] meter_perPx;
     private double laser2target_x = 0;
     private double laser2target_y = 0;
 
@@ -19,7 +19,7 @@ public class Aimer {
     private final double cam_high  = 0.0826;
 
 
-    public Aimer(double arTag_sizePx , double  meter_perPx ) {
+    public Aimer(double arTag_sizePx , double[]  meter_perPx ) {
         this.arTag_sizePx = arTag_sizePx;
         this.meter_perPx = meter_perPx;
 
@@ -54,8 +54,8 @@ public class Aimer {
         Log.i(TAG, "cam_target_px_x=" + cam_target_px_x);
         Log.i(TAG, "cam_target_px_y=" + cam_target_px_y);
         
-        double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) + xOffset ;
-        double cam_target_dis_y = ( cam_target_px_y * meter_perPx ) + yOffset;
+        double cam_target_dis_x = ( cam_target_px_x * meter_perPx[0] ) + xOffset ;
+        double cam_target_dis_y = ( cam_target_px_y * meter_perPx[1] ) + yOffset;
         Log.i(TAG, "cam_target_dis_x=" + cam_target_dis_x);
         Log.i(TAG, "cam_target_dis_y=" + cam_target_dis_y);
 
