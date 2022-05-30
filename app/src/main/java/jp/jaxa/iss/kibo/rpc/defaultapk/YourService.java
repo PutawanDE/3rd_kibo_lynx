@@ -230,6 +230,7 @@ public class YourService extends KiboRpcService {
 
         do {
             result = api.moveTo(target_point, q, true);
+            Log.i(TAG, "Retry move " + counter + " to " +target_point +", q:" + q);
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
 
