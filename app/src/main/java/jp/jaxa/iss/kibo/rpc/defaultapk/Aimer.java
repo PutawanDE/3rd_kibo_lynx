@@ -8,7 +8,7 @@ import java.util.Arrays;
 public class Aimer {
 
     private final double arTag_sizePx;
-    private final double[] meter_perPx;
+    private final double meter_perPx;
     private double laser2target_x = 0;
     private double laser2target_y = 0;
 
@@ -19,7 +19,7 @@ public class Aimer {
     private final double cam_high  = 0.0826;
 
 
-    public Aimer(double arTag_sizePx , double[]  meter_perPx ) {
+    public Aimer(double arTag_sizePx , double  meter_perPx ) {
         this.arTag_sizePx = arTag_sizePx;
         this.meter_perPx = meter_perPx;
 
@@ -29,7 +29,7 @@ public class Aimer {
         final String TAG = "pixelDistanceToAngle";
         Log.i(TAG, "================== pixelDistanceToAngle ==================");
         final double[] ref  = {635.434258, 500.335102}; // original
-        final double focusCamera = 5.34765913;
+        final double focusCamera = 534.765913; // focallength y
 
 //        final double focusCamera = 4.161542;
         final double cam_depth = 0.1177;
@@ -37,7 +37,7 @@ public class Aimer {
         final double xOffset = -0.0103 + 0.0015;
         final double yOffset = 0.005 + 0.001;
 
-        double cam2walldis = focusCamera * 5 / arTag_sizePx;
+        double cam2walldis = focusCamera * 0.05 / arTag_sizePx;
         double l2w =  cam2walldis - ( laser_depth - cam_depth);
 
         if( l2w < 0.56 || l2w > 0.66){
@@ -54,8 +54,8 @@ public class Aimer {
         Log.i(TAG, "cam_target_px_x=" + cam_target_px_x);
         Log.i(TAG, "cam_target_px_y=" + cam_target_px_y);
         
-        double cam_target_dis_x = ( cam_target_px_x * meter_perPx[0] ) + xOffset ;
-        double cam_target_dis_y = ( cam_target_px_y * meter_perPx[1] ) + yOffset;
+        double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) + xOffset ;
+        double cam_target_dis_y = ( cam_target_px_y * meter_perPx * 0.9894445 ) + yOffset;
         Log.i(TAG, "cam_target_dis_x=" + cam_target_dis_x);
         Log.i(TAG, "cam_target_dis_y=" + cam_target_dis_y);
 
@@ -79,7 +79,7 @@ public class Aimer {
         Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
         //###################################
 
-        double[] out = {horizonAngle, verticalAngle};
+        double[] out = {Math.toDegrees(horizonAngle), Math.toDegrees(verticalAngle)};
         Log.i(TAG, "Angle(x,y)= " + Arrays.toString(out));
         Log.i(TAG, "================== Done ==================");
         return out;
