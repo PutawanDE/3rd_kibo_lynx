@@ -79,8 +79,9 @@ public class Aimer {
         Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
         //###################################
 
-        double[] out = {Math.toDegrees(horizonAngle), Math.toDegrees(verticalAngle)};
+        double[] out = {horizonAngle, verticalAngle};
         Log.i(TAG, "Angle(x,y)= " + Arrays.toString(out));
+        Log.i(TAG, "Degrees (x,y)= " + Math.toDegrees(horizonAngle)+":"+ Math.toDegrees(verticalAngle) );
         Log.i(TAG, "================== Done ==================");
         return out;
     }
