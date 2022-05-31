@@ -102,7 +102,7 @@ public class YourService extends KiboRpcService {
              }while (!aim_Succeed && aim_try < LOOP_MAX );
 
              //############## SAFETY ####################
-             if(check_point_A && It_realworld){
+             if( !check_point_A && It_realworld){
                  return false;
              }
              //##################################
