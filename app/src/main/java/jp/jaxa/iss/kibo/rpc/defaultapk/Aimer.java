@@ -53,9 +53,11 @@ public class Aimer {
         double cam_target_px_y = ref[1] - (targetPosition[1]);
         Log.i(TAG, "cam_target_px_x=" + cam_target_px_x);
         Log.i(TAG, "cam_target_px_y=" + cam_target_px_y);
-        
+
+        double focalLength_x_y_ratio = 0.9894445;
+
         double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) + xOffset ;
-        double cam_target_dis_y = ( cam_target_px_y * meter_perPx * 0.9894445 ) + yOffset;
+        double cam_target_dis_y = ( cam_target_px_y * meter_perPx * focalLength_x_y_ratio ) + yOffset;
         Log.i(TAG, "cam_target_dis_x=" + cam_target_dis_x);
         Log.i(TAG, "cam_target_dis_y=" + cam_target_dis_y);
 
