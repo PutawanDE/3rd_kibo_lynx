@@ -129,7 +129,7 @@ public class NavCam {
 
             arTag_sizePx = ( arTag_sizePx_x + arTag_sizePx_y ) /2;
 
-            meter_perPx = 0.05 / arTag_sizePx_x;
+            meter_perPx = 0.05 / arTag_sizePx;
             double meter_perPx_x = 0.05 / arTag_sizePx_x;
             double meter_perPx_y = 0.05 / arTag_sizePx_y;
 

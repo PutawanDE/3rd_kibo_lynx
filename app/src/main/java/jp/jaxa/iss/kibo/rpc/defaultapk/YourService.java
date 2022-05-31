@@ -299,7 +299,7 @@ public class YourService extends KiboRpcService {
                         Log.i(TAG, String.format("angleDiff = %f", angleDiff));
                         Log.i(TAG, String.format("Result %d = %s, %s, %s", retry, res.getConfidence(), res.getPosition().toString(), res.getOrientation().toString()));
 
-                        if (angleDiff < 0.4) {
+                        if (angleDiff < 0.5) {
                             try {
                                 Log.i(TAG,"angleDiff < 0.4");
                                 Thread.sleep(500);
