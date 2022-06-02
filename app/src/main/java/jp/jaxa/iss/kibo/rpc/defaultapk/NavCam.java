@@ -22,17 +22,25 @@ public class NavCam {
     private final String FailTAG = "Fail_NavCam";
     private static boolean FAIL_to_Find_TARGET = false;
 
+    private final double[] CAM_MATSIM;
+    private final double[] DIST_COEFFSIM;
+
+    private static double arTag_sizePx;
+    private static double[] meter_perPx;
     private final int cropPic_x = 350;
     private final int cropPic_y = 350;
-    private static double arTag_sizePx;
-    private static double meter_perPx;
     private final int NAV_LOOP_MAX = 4;
 
     private Mat CenterTarget;
 
 
-    public NavCam(){
+    public NavCam(double[][] Nav){
+        final String TAG = "constructor ";
+        this.CAM_MATSIM = Nav[0];
+        this.DIST_COEFFSIM = Nav[1];
+        Log.i(TAG, "Succeed Build NavCam " + java.util.Arrays.toString(CAM_MATSIM) +":"+java.util.Arrays.toString(DIST_COEFFSIM ) );
     }
+
     class arTag_data {
         double size_x, size_y, imagePoint_x, imagePoint_y;
 
@@ -129,14 +137,16 @@ public class NavCam {
 
             arTag_sizePx = ( arTag_sizePx_x + arTag_sizePx_y ) /2;
 
-            meter_perPx = 0.05 / arTag_sizePx;
+//            meter_perPx = 0.05 / arTag_sizePx;
             double meter_perPx_x = 0.05 / arTag_sizePx_x;
             double meter_perPx_y = 0.05 / arTag_sizePx_y;
+
+            meter_perPx  = new double[] {meter_perPx_x, meter_perPx_y};
 
             Log.i(TAG, "arTag_sizePx (avg) : " + arTag_sizePx );
             Log.i(TAG, "arTag_sizePx (x) : " + arTag_sizePx_x );
             Log.i(TAG, "arTag_sizePx (y) : " + arTag_sizePx_y );
-            Log.i(TAG, "meter_perPx (avg): " + meter_perPx );
+            Log.i(TAG, "meter_perPx[] : " + java.util.Arrays.toString(meter_perPx) );
             Log.i(TAG, "meter_perPx (x) : " + meter_perPx_x );
             Log.i(TAG, "meter_perPx (y) : " + meter_perPx_y );
             Log.i(TAG, "Center x : " + (arTag[0].imagePoint_x + arTag[1].imagePoint_x + arTag[2].imagePoint_x + arTag[3].imagePoint_x) / 4.0f );
@@ -195,17 +205,6 @@ public class NavCam {
 
     public Mat undistortPicture(Mat pic) {
         final String TAG = "undistortPic";
-//        api.saveMatImage(pic,  (System.currentTimeMillis()-debug_Timestart ) + " Input Pic to undistort.png" );
-        final double[] CAM_MATSIM = {
-                523.105750, 0.0, 635.434258,
-                0.0, 534.765913, 500.335102,
-                0.0, 0.0, 1.0
-        };
-
-        final double[] DIST_COEFFSIM = {
-                -0.164787, 0.020375, -0.001572, -0.000369, 0.0
-        };
-
         Log.i(TAG, "Start");
 
         try {
@@ -233,7 +232,7 @@ public class NavCam {
     public static double getArTag_sizePx(){
         return arTag_sizePx;
     }
-    public static double getMeter_perPx(){
+    public static double[] getMeter_perPx(){
         return meter_perPx;
     }
     public static boolean FailtoFindTarget(){

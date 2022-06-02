@@ -50,7 +50,7 @@ public class YourService extends KiboRpcService {
     protected void runPlan1(){
         debug_Timestart = System.currentTimeMillis();
         api.startMission();
-        
+
         // move to point A
         check_point_A = mission_point_A();
 
@@ -269,7 +269,7 @@ public class YourService extends KiboRpcService {
                 Mat pic_cam =  api.getMatNavCam();
                 Thread.sleep(1000);
 
-                NavCam camArTag = new NavCam();
+                NavCam camArTag = new NavCam(api.getNavCamIntrinsics());
                 Mat undistort_Cam = camArTag.undistortPicture(pic_cam);
                 Mat  undistort_AR_Center = camArTag.findARtag(undistort_Cam);
 
