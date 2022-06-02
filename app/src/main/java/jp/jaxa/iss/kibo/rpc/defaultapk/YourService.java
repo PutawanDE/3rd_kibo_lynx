@@ -288,40 +288,33 @@ public class YourService extends KiboRpcService {
 
                     // try rotating to wanted angle and shoot laser
                     int retry = 0;
-                    double angleDiffOld = 90;
                     while (retry <= LOOP_MAX) {
                         move_to(point_B_to_shoot_target2 , qToTurn_Target2); // rotate astrobee
 
                         // compare result with what we need
+                        Thread.sleep(500);
                         Kinematics res = api.getRobotKinematics();
                         double angleDiff = compareQuaternion(qToTurn_Target2, res.getOrientation());
 
                         Log.i(TAG, String.format("angleDiff = %f", angleDiff));
                         Log.i(TAG, String.format("Result %d = %s, %s, %s", retry, res.getConfidence(), res.getPosition().toString(), res.getOrientation().toString()));
 
-                        if (angleDiff < 0.5) {
+                        if( angleDiff < (0.4 + retry / 10.0 )  ){
                             try {
-                                Log.i(TAG,"angleDiff < 0.4");
-                                Thread.sleep(500);
-                            } catch (Exception ignored) {}
-                            break;
-                        }
-                        else if( angleDiffOld < 1 && angleDiff < angleDiffOld ){
-                            try {
-                                Log.i(TAG,"angleDiff better");
+                                Log.i(TAG,"retry: "+ retry  + " angleDiff " + angleDiff);
                                 Thread.sleep(500);
                             } catch (Exception ignored) {}
                             break;
                         }
                         else if (retry == 4) {
                             try {
-                                Log.i(TAG,"retry == 4 out of bound");
+                                Log.i(TAG,"retry == 4 out of bound" + " angleDiff " + angleDiff);
                                 Thread.sleep(500);
                             } catch (Exception ignored) {}
                             break;
                         }
-                        angleDiffOld = angleDiff;
                         move_to(point_B_to_shoot_target2, B_quaternion); // reset astrobee
+                        Thread.sleep(2000);
                         retry++;
                     }
                 }
