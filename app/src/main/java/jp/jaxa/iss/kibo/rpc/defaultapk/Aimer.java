@@ -37,7 +37,7 @@ public class Aimer {
         final double focusCamera = 534.765913; // focallength y
 
 
-        final double xOffset = 0.01;
+        final double xOffset = -0.01;
         final double yOffset = 0.006;
 
         double cam2walldis = focusCamera * 0.05 / arTag_sizePx;
