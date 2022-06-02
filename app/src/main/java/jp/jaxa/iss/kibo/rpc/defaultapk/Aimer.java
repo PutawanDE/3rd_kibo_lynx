@@ -12,11 +12,12 @@ public class Aimer {
     private double laser2target_x = 0;
     private double laser2target_y = 0;
 
-    private final double laser_depth  =  0.1302;
     private final double laser_width = 0.0572;
     private final double laser_high = 0.1111;
+    private final double laser_depth  =  0.1302;
     private final double cam_width  = 0.0422;
     private final double cam_high  = 0.0826;
+    private final double cam_depth = 0.1177;
 
 
     public Aimer(double arTag_sizePx , double  meter_perPx ) {
@@ -28,36 +29,44 @@ public class Aimer {
     public double[] pixelDistanceToAngle(double[] targetPosition ) {
         final String TAG = "pixelDistanceToAngle";
         Log.i(TAG, "================== pixelDistanceToAngle ==================");
+
+        boolean useFixed = true;
+
+
         final double[] ref  = {635.434258, 500.335102}; // original
         final double focusCamera = 534.765913; // focallength y
 
-//        final double focusCamera = 4.161542;
-        final double cam_depth = 0.1177;
 
-        final double xOffset = -0.0103 + 0.0015;
-        final double yOffset = 0.005 + 0.001 - 0.001;
+        final double xOffset = 0.01;
+        final double yOffset = 0.006;
 
         double cam2walldis = focusCamera * 0.05 / arTag_sizePx;
-        double l2w =  cam2walldis - ( laser_depth - cam_depth);
+        cam2walldis = cam2walldis - 0.12;
+        double k2w =  cam2walldis + cam_depth;
 
-        if( l2w < 0.56 || l2w > 0.66){
-            Log.i(TAG, "l2w out of range =" + l2w);
-            Log.i(TAG, "use fixed range = 0.5892737333333333 ");
-            l2w = 0.5892737333333333;
+//        if( k2w < 0.69 || k2w > 0.72){
+//            Log.i(TAG, "k2w out of range =" + k2w);
+//            Log.i(TAG, "use fixed range =  0.58 ");
+//            k2w = 0.58;
+//        }
+
+        if(useFixed){
+            Log.i(TAG, "useFixed k2w " );
+            Log.i(TAG, "BEFORE k2w =" + k2w );
+            k2w = 0.58;
+            Log.i(TAG, "AFTER k2w =" + k2w);
         }
 
         Log.i(TAG, "cam2walldis=" + cam2walldis);
-        Log.i(TAG, "l2w = " + l2w);
+        Log.i(TAG, "k2w = " + k2w);
 
         double cam_target_px_x = (targetPosition[0]) - ref[0];
         double cam_target_px_y = ref[1] - (targetPosition[1]);
         Log.i(TAG, "cam_target_px_x=" + cam_target_px_x);
         Log.i(TAG, "cam_target_px_y=" + cam_target_px_y);
 
-        double focalLength_x_y_ratio = 0.9894445;
-
         double cam_target_dis_x = ( cam_target_px_x * meter_perPx ) + xOffset ;
-        double cam_target_dis_y = ( cam_target_px_y * meter_perPx * focalLength_x_y_ratio ) + yOffset;
+        double cam_target_dis_y = ( cam_target_px_y * meter_perPx ) + yOffset ;
         Log.i(TAG, "cam_target_dis_x=" + cam_target_dis_x);
         Log.i(TAG, "cam_target_dis_y=" + cam_target_dis_y);
 
@@ -72,12 +81,12 @@ public class Aimer {
         Log.i(TAG, "centerKibo2target_y (m)= " + centerKibo2target_y);
 
         //########  horizonAngle axis #######
-        double horizonAngle = horizonAngle_axis(l2w, centerKibo2target_x);
+        double horizonAngle = horizonAngle_axis(k2w, centerKibo2target_x);
         Log.i(TAG, "horizonAngle(x)= " + horizonAngle);
         //###################################
 
         //########  verticalAngle axis #######
-        double verticalAngle = verticalAngle_axis(l2w, centerKibo2target_y);
+        double verticalAngle = verticalAngle_axis(k2w, centerKibo2target_y);
         Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
         //###################################
 
@@ -90,9 +99,8 @@ public class Aimer {
 
 
     // horizon angle
-    private double horizonAngle_axis(double l2w ,double xc) {
+    private double horizonAngle_axis(double k2w ,double xc) {
         String TAG = "horizonAngle_axis";
-
 
         double laser_oblique_x = 0.14221068876846074;
 
@@ -100,8 +108,8 @@ public class Aimer {
         final double pivotAngle = 2.727652176143348;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2w, 2));
-        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(l2w - laser_depth, 2));
+        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(k2w, 2));
+        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(k2w - laser_depth, 2));
 
         double angle1  = Math.acos((Math.pow(laser_oblique_x, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2* laser_oblique_x *l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((laser_oblique_x *Math.sin(pivotAngle))/l);
@@ -127,7 +135,7 @@ public class Aimer {
     }
 
     // vertical angle
-    private double verticalAngle_axis(double l2w, double yc) {
+    private double verticalAngle_axis(double k2w, double yc) {
         String TAG = "verticalAngle_axis";
 
         double laser_oblique_y = 0.1711585522257068;
@@ -136,8 +144,8 @@ public class Aimer {
         final double pivotAngle = 2.435184375290124;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(l2w, 2) + Math.pow(yc, 2));
-        double lp = Math.sqrt(Math.pow(l2w-laser_depth, 2) + Math.pow(yc- laser_high, 2));
+        double l = Math.sqrt(Math.pow(k2w, 2) + Math.pow(yc, 2));
+        double lp = Math.sqrt(Math.pow(k2w-laser_depth, 2) + Math.pow(yc- laser_high, 2));
 
         double angle1  = Math.acos((Math.pow(laser_oblique_y, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2* laser_oblique_y *l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((laser_oblique_y *Math.sin(pivotAngle))/l);
