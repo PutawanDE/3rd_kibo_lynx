@@ -34,16 +34,18 @@ public class Aimer {
 
 
         final double[] ref  = {635.434258, 500.335102}; // original
-        final double focusCamera = 534.765913; // focallength y
+        final double focusCamera_y = 534.765913;
+        // focallength y 534.765913
+        // focallength x 523.105750
+//        final double focalLength_x_y_ratio = 0.97819576245129894806889084570356; //original
+        final double focalLength_x_y_ratio = 1;
+        final double xOffset = -0.016;
+        final double yOffset = -0.013;
 
-
-        final double xOffset = -0.01;
-        final double yOffset = 0.006;
-
-        double cam2walldis = focusCamera * 0.05 / arTag_sizePx;
-        cam2walldis = cam2walldis - 0.12;
-        double k2w =  cam2walldis + cam_depth;
-
+        double cam2walldis = focusCamera_y * 0.05 / arTag_sizePx;
+        Log.i(TAG, "cam2walldis=" + cam2walldis);
+        
+        double astrobee2wall =  cam2walldis + cam_depth;
 //        if( k2w < 0.69 || k2w > 0.72){
 //            Log.i(TAG, "k2w out of range =" + k2w);
 //            Log.i(TAG, "use fixed range =  0.58 ");
@@ -52,13 +54,12 @@ public class Aimer {
 
         if(useFixed){
             Log.i(TAG, "useFixed k2w " );
-            Log.i(TAG, "BEFORE k2w =" + k2w );
-            k2w = 0.58;
-            Log.i(TAG, "AFTER k2w =" + k2w);
+            Log.i(TAG, "BEFORE astrobee2wall =" + astrobee2wall );
+            astrobee2wall = 0.65;
+            Log.i(TAG, "AFTER astrobee2wall =" + astrobee2wall);
         }
 
-        Log.i(TAG, "cam2walldis=" + cam2walldis);
-        Log.i(TAG, "k2w = " + k2w);
+        Log.i(TAG, "k2w = " + astrobee2wall);
 
         double cam_target_px_x = (targetPosition[0]) - ref[0];
         double cam_target_px_y = ref[1] - (targetPosition[1]);
@@ -81,12 +82,12 @@ public class Aimer {
         Log.i(TAG, "centerKibo2target_y (m)= " + centerKibo2target_y);
 
         //########  horizonAngle axis #######
-        double horizonAngle = horizonAngle_axis(k2w, centerKibo2target_x);
+        double horizonAngle = horizonAngle_axis(astrobee2wall, centerKibo2target_x);
         Log.i(TAG, "horizonAngle(x)= " + horizonAngle);
         //###################################
 
         //########  verticalAngle axis #######
-        double verticalAngle = verticalAngle_axis(k2w, centerKibo2target_y);
+        double verticalAngle = verticalAngle_axis(astrobee2wall, centerKibo2target_y);
         Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
         //###################################
 
@@ -99,7 +100,7 @@ public class Aimer {
 
 
     // horizon angle
-    private double horizonAngle_axis(double k2w ,double xc) {
+    private double horizonAngle_axis(double astrobee2wall ,double xc) {
         String TAG = "horizonAngle_axis";
 
         double laser_oblique_x = 0.14221068876846074;
@@ -108,8 +109,8 @@ public class Aimer {
         final double pivotAngle = 2.727652176143348;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(k2w, 2));
-        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(k2w - laser_depth, 2));
+        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(astrobee2wall, 2));
+        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(astrobee2wall - laser_depth, 2));
 
         double angle1  = Math.acos((Math.pow(laser_oblique_x, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2* laser_oblique_x *l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((laser_oblique_x *Math.sin(pivotAngle))/l);
@@ -135,7 +136,7 @@ public class Aimer {
     }
 
     // vertical angle
-    private double verticalAngle_axis(double k2w, double yc) {
+    private double verticalAngle_axis(double astrobee2wall, double yc) {
         String TAG = "verticalAngle_axis";
 
         double laser_oblique_y = 0.1711585522257068;
@@ -144,8 +145,8 @@ public class Aimer {
         final double pivotAngle = 2.435184375290124;
 
         // Length from Astrobee pivot to target
-        double l = Math.sqrt(Math.pow(k2w, 2) + Math.pow(yc, 2));
-        double lp = Math.sqrt(Math.pow(k2w-laser_depth, 2) + Math.pow(yc- laser_high, 2));
+        double l = Math.sqrt(Math.pow(astrobee2wall, 2) + Math.pow(yc, 2));
+        double lp = Math.sqrt(Math.pow(astrobee2wall-laser_depth, 2) + Math.pow(yc- laser_high, 2));
 
         double angle1  = Math.acos((Math.pow(laser_oblique_y, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2* laser_oblique_y *l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((laser_oblique_y *Math.sin(pivotAngle))/l);
