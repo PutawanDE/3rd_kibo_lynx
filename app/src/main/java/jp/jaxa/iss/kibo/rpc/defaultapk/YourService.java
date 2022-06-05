@@ -267,10 +267,11 @@ public class YourService extends KiboRpcService {
 
                 Thread.sleep(6000);
                 Mat pic_cam =  api.getMatNavCam();
-                Thread.sleep(1000);
+                api.saveMatImage(pic_cam,  (System.currentTimeMillis()-debug_Timestart )+" Point B.png" );
 
                 NavCam camArTag = new NavCam(api.getNavCamIntrinsics());
                 Mat undistort_Cam = camArTag.undistortPicture(pic_cam);
+                api.saveMatImage(undistort_Cam,  (System.currentTimeMillis()-debug_Timestart )+" Point B undistort.png" );
                 Mat  undistort_AR_Center = camArTag.findARtag(undistort_Cam);
 
                 api.saveMatImage(camArTag.getCenterTarget(),  (System.currentTimeMillis()-debug_Timestart )+" ArucoDetectedCenter.png" );
@@ -293,7 +294,7 @@ public class YourService extends KiboRpcService {
 
                         // compare result with what we need
                         Thread.sleep(500);
-                        Kinematics res = api.getRobotKinematics();
+                        Kinematics res = getLYNXTrustedRobotKinematics();
                         double angleDiff = compareQuaternion(qToTurn_Target2, res.getOrientation());
 
                         Log.i(TAG, String.format("angleDiff = %f", angleDiff));
@@ -329,22 +330,14 @@ public class YourService extends KiboRpcService {
     private Quaternion eulerAngleToQuaternion(double xAngle, double yAngle, double zAngle) {
         final String TAG = "Convert euler angle to quaternion";
 
-        double c1 = Math.cos(yAngle / 2);
-        double c2 = Math.cos(zAngle / 2);
-        double c3 = Math.cos(xAngle / 2);
-        double s1 = Math.sin(yAngle / 2);
-        double s2 = Math.sin(zAngle / 2);
-        double s3 = Math.sin(xAngle / 2);
+        double qx = Math.sin(xAngle/2) * Math.cos(yAngle/2) * Math.cos(zAngle/2) - Math.cos(xAngle/2) * Math.sin(yAngle/2) * Math.sin(zAngle/2);
+        double qy = Math.cos(xAngle/2) * Math.sin(yAngle/2) * Math.cos(zAngle/2) + Math.sin(xAngle/2) * Math.cos(yAngle/2) * Math.sin(zAngle/2);
+        double qz = Math.cos(xAngle/2) * Math.cos(yAngle/2) * Math.sin(zAngle/2) - Math.sin(xAngle/2) * Math.sin(yAngle/2) * Math.cos(zAngle/2);
+        double qw = Math.cos(xAngle/2) * Math.cos(yAngle/2) * Math.cos(zAngle/2) + Math.sin(xAngle/2) * Math.sin(yAngle/2) * Math.sin(zAngle/2);
+        Log.i(TAG, " qx:" + qx + " qy:" + qy + " qz:" + qz + " qw:" + qw);
 
-        double w = c1 * c2 * c3 - s1 * s2 * s3;
-        double x = s1 * s2 * c3 + c1 * c2 * s3;
-        double y = s1 * c2 * c3 + c1 * s2 * s3;
-        double z = c1 * s2 * c3 - s1 * c2 * s3;
-
-        Log.i(TAG, " x:" + x + " y:" + y + " z:" + z + " w:" + w);
-        return new Quaternion((float) x, (float) y, (float) z, (float) w);
+        return new Quaternion((float) qx, (float) qy, (float) qz, (float) qw);
     }
-
     private Quaternion combineQuaternion(Quaternion q1, Quaternion q2) {
         String TAG = "combineQuaternion";
         double s1 = q1.getW();
@@ -376,6 +369,29 @@ public class YourService extends KiboRpcService {
     }
     private double compareQuaternion(Quaternion q1, Quaternion q2) {
         return vectorAngleDiff(vectorOrientation(q1), vectorOrientation(q2));
+    }
+    private Kinematics getLYNXTrustedRobotKinematics() {
+        Log.i("GongApi", "[Start] getTrustedRobotKinematics");
+        Log.i("GongApi", "[getTrustedRobotKinematics] Waiting for robot to acquire position.");
+        Kinematics k = api.getRobotKinematics();
+        long start_point = System.currentTimeMillis();
+
+        for(long end_point = System.currentTimeMillis(); end_point - start_point < 30000L; end_point = System.currentTimeMillis()) {
+            k = api.getRobotKinematics();
+            if (k.getConfidence() == Kinematics.Confidence.GOOD) {
+                Log.i("GongApi", "[getTrustedRobotKinematics] Break loop");
+                break;
+            }
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException var7) {
+                Log.i("GongApi", "[getTrustedRobotkinematics] It was not possible to get a trusted kinematics. Sorry.");
+                break;
+            }
+        }
+        
+        Log.i("GongApi", "[Finish] getTrustedRobotKinematics");
+        return k;
     }
 }
 
