@@ -1,7 +1,5 @@
 package jp.jaxa.iss.kibo.rpc.defaultapk;
 
-import static org.opencv.imgproc.Imgproc.undistort;
-
 import android.util.Log;
 
 import org.opencv.aruco.Aruco;
@@ -12,13 +10,12 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint3f;
 import org.opencv.core.Point3;
 import org.opencv.core.Rect;
-import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+import gov.nasa.arc.astrobee.Kinematics;
 import gov.nasa.arc.astrobee.Result;
 import gov.nasa.arc.astrobee.types.Point;
 import gov.nasa.arc.astrobee.types.Quaternion;
@@ -30,7 +27,7 @@ import jp.jaxa.iss.kibo.rpc.api.KiboRpcService;
 
 public class YourService extends KiboRpcService {
 
-    final int LOOP_MAX = 3;
+    final int LOOP_MAX = 5;
 
     final double[] CAM_MATSIM = {
             523.105750, 0.000000, 635.434258,
@@ -50,31 +47,9 @@ public class YourService extends KiboRpcService {
             0.1302, 0.0572, -0.1111
     };
 
-    final double laser_width = 0.0572;
-    final double laser_depth = 0.1302;
-    final double laser_oblique_x = 0.14221;
-    final double laser_oblique_y = 0.171159;
-    final double laser_high = 0.1111;
-
-    final double cam_depth = 0.1177;
-    final double cam_width = 0.0422;
-    final double cam_high = 0.0826;
-
-    final double target2_marker_x_dist = 0.225;
-    final double target2_marker_y_dist = 0.083;
     final double target2_board_width = 0.275;
     final double target2_board_height = 0.133;
-
-    final double[] marker12_point = {0, 0, 0};
-    final double[] marker11_point = {target2_marker_x_dist, 0, 0};
-    final double[] marker14_point = {target2_marker_x_dist, target2_marker_y_dist, 0};
-    final double[] marker13_point = {0, target2_marker_y_dist, 0};
-
-    final double[][] markersPoint = {
-            marker12_point, marker11_point, marker14_point, marker13_point
-    };
-
-    final float MARKER_LENGTH = 0.05f;
+    final double MARKER_LENGTH = 0.05;
 
     long debug_Timestart = 0;
     private boolean FAIL_to_Find_TARGET;
@@ -85,62 +60,93 @@ public class YourService extends KiboRpcService {
         api.startMission();
 
         // move to point A
-        Quaternion quaternion = new Quaternion(0f, 0.707f, 0f, 0.707f);
-        move_to(10.71, -7.7, 4.48, quaternion);
+        Quaternion quaternionAtB = new Quaternion(0f, 0.707f, 0f, 0.707f);
+        move_to(10.71, -7.7, 4.48, quaternionAtB);
         api.reportPoint1Arrival();
 
         // shoot laser
-        move_to(10.71, -7.811971, 4.48, quaternion);
+        move_to(10.71, -7.811971, 4.48, quaternionAtB);
         api.laserControl(true);
         api.takeTarget1Snapshot();
 
 
-        // move to point 2
-        quaternion = new Quaternion(0f, 0f, -0.707f, 0.707f);
-        move_to(10.876214285714285, -8.5, 4.97063, quaternion);
-        move_to(11.0067, -9.44819, 5.186407142857143, quaternion);
-        move_to(11.2746, -9.92284, 5.29881, quaternion);
-
-        // shoot laser
-//        final Mat target = find_circle();
-//        final Mat undistort_target = undistortPoints(target);
-//        final double[] laser = {711, 455};
-//        final double[] angleToTurn = pixelDistanceToAngle(undistort_target.get(0, 0), laser);
-//        final Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
-//        final Quaternion qToTurn  = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
-//
-//        move_to(11.2746, -9.92284, 5.29881, qToTurn);
+        // move to point B
+        Point B = new Point(11.2746, -9.92284, 5.29881);
+        quaternionAtB = new Quaternion(0f, 0f, -0.707f, 0.707f);
+        move_to(10.876214285714285, -8.5, 4.97063, quaternionAtB);
+        move_to(11.0067, -9.44819, 5.186407142857143, quaternionAtB);
+        move_to(B, quaternionAtB);
 
         // Wait for camera delay or Astrobee to stop moving due to inertia
         try {
-            Thread.sleep(5000);
+            Thread.sleep(6000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
-        double cam2WallDis = estimateCam2WallDis(api.getMatNavCam());
-        Mat cropPic = new Mat(undistortPic(api.getMatNavCam()), new Rect(350, 350, 600, 360));
-        ArBoard undistortedBoard = readAR(cropPic);
-        double meterPerPixel = calcMeterPerPxFromBoard(undistortedBoard);
-        double[] target = findTarget(cropPic);
+        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(api.getMatNavCam());
+        final int cropPosX = 500;
+        final int cropPosY = 500;
+        Mat croppedImg = new Mat(api.getMatNavCam(), new Rect(cropPosX, cropPosY, 330, 200));
+        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
+        Target target = new Target(targetImg, cropPosX, cropPosY, CAM_MATSIM, astrobeeToWallDist_z);
+        api.saveMatImage(targetImg, "ud_target_img.png");
 
-        double[] angleToTurn = pixelDistanceToAngle(target, cam2WallDis, meterPerPixel);
-        Quaternion imageQ = eulerAngleToQuaternion(angleToTurn[1], 0, angleToTurn[0]);
-        Quaternion qToTurn_Target2 = combineQuaternion(imageQ, new Quaternion(0, 0, -0.707f, 0.707f));
-        turn_to(qToTurn_Target2);
+        final double xAngle = -computeXAngle(astrobeeToWallDist_z, target.getY());
+        final double yAngle = -computeYAngle(astrobeeToWallDist_z, target.getX());
 
-//        relative_move_to(arBoardPos[1] - LASER_POS[1], 0, arBoardPos[2] - LASER_POS[2],
-//                quaternion);
-//        double[] arBoardPos = estimateBoardPosAve(api.getMatNavCam(), 5);
+        Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
+        Quaternion absoluteQ = mutiplyQuaternion(relativeQ, quaternionAtB);
 
-        api.laserControl(true);
-        api.saveMatImage(api.getMatNavCam(), "ShootLaser.png");
+        String TAG = "Rotation";
+        Log.i(TAG, "relativeQ = " + relativeQ.toString());
+        Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
+
+        // try rotating to wanted angle and shoot laser
+        Quaternion initialQuaternion = new Quaternion(0, 0, -0.6427876f, 0.7660444f);
+        move_to(B, initialQuaternion);; // reset astrobee
+        int retry = 0;
+        while (retry <= LOOP_MAX) {
+            move_to(B, absoluteQ); // rotate astrobee
+
+            // compare result with what we need
+            Kinematics res = api.getRobotKinematics();
+            double angleDiff = compareQuaternion(absoluteQ, res.getOrientation());
+
+            Log.i(TAG, String.format("angleDiff = %f", angleDiff));
+            Log.i(TAG, String.format("Result %d = %s, %s, %s",
+                    retry,
+                    res.getConfidence(),
+                    res.getPosition().toString(),
+                    res.getOrientation().toString()
+            ));
+
+            if (angleDiff < 1) {
+                try {
+                    Thread.sleep(500);
+                } catch (Exception ignored) {}
+                api.laserControl(true);
+                break;
+            }
+            else if (retry == LOOP_MAX) {
+                // last resort shooting
+                try {
+                    Thread.sleep(500);
+                } catch (Exception ignored) {}
+                api.laserControl(true);
+                break;
+            }
+
+            move_to(B, initialQuaternion);; // reset astrobee
+            retry++;
+        }
+
         api.takeTarget2Snapshot();
 
         // move to goal
-        move_to(11.0067, -9.44819, 5.1722, quaternion);
-        move_to(11.073773469387755, -8.5, 4.97063, quaternion);
-        move_to(11.2746, -7.89178, 4.96538, quaternion);
+        move_to(11.0067, -9.44819, 5.1722, quaternionAtB);
+        move_to(11.073773469387755, -8.5, 4.97063, quaternionAtB);
+        move_to(11.2746, -7.89178, 4.96538, quaternionAtB);
 
         api.reportMissionCompletion();
     }
@@ -155,99 +161,48 @@ public class YourService extends KiboRpcService {
         // write here your plan 3
     }
 
-    private void move_to(double x, double y, double z, Quaternion q) {
-        final Point p = new Point(x, y, z);
-
+    private void move_to(Point p, Quaternion q) {
         int counter = 0;
         Result result;
-
         do {
             result = api.moveTo(p, q, true);
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
-
     }
 
-    private void turn_to(Quaternion q) {
-        final String TAG = "turn_to";
-        final Point p_dormant = new Point(0, 0, 0);
-
-        int counter = 0;
-        Result result;
-
-        Log.i(TAG, "Start turn to p:" + p_dormant + ", q:" + q);
-
-        do {
-            result = api.relativeMoveTo(p_dormant, q, true);
-            counter++;
-        } while (!result.hasSucceeded() && (counter < LOOP_MAX));
-
-        Log.i(TAG, "Done turn to p:" + p_dormant + ", q:" + q);
-
-    }
-
-    private void relative_move_to(double x, double y, double z, Quaternion q) {
+    private void move_to(double x, double y, double z, Quaternion q) {
         final Point p = new Point(x, y, z);
-        int counter = 0;
-        Result result;
-
-        do {
-            result = api.relativeMoveTo(p, q, true);
-            counter++;
-        } while (!result.hasSucceeded() && (counter < LOOP_MAX));
+        move_to(p, q);
     }
 
-    private double calcMeterPerPxFromBoard(ArBoard undistortedBoard) {
-        final String TAG = "calcPixelPerMeterFromBoard";
-        int[] dimensions = undistortedBoard.getDimensionPx();
-        if (dimensions.length == 4) {
-            int top = dimensions[0];
-            int right = dimensions[1];
-            int bottom = dimensions[2];
-            int left = dimensions[3];
-            double realWidth = undistortedBoard.getRealWidth();
-            double realHeight = undistortedBoard.getRealHeight();
-
-            Log.i(TAG, "Board Dimension in Px: " + Arrays.toString(dimensions));
-            Log.i(TAG, "Board Dimension in m. (Real): w=" + realWidth + " h=" + realHeight);
-
-            double meterPerPx = ((realWidth / top) + (realWidth / bottom) +
-                    (realHeight / right) + (realHeight / left)) / 4.0;
-            Log.i(TAG, "Pixel per meter= " + meterPerPx);
-            return meterPerPx;
-        } else {
-            //TODO find the best fixed pixel per meter
-            double fixedPixelPerMeter = 0;
-            Log.i(TAG, "Detected Board is incomplete. Returning Fixed PixelPerMeter= " +
-                    fixedPixelPerMeter);
-            return fixedPixelPerMeter;
-        }
-    }
-
-    private double estimateCam2WallDis(Mat img) {
+    private double estimateAstrobeeToWallDist_z(Mat ar_img) {
         final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
-        final String TAG = "estimateBoardPos";
-        api.saveMatImage(img, "Input_Board_estimate.png");
+        final String TAG = "estimateAstrobeeToWallDist_z";
+        api.saveMatImage(ar_img, "InputBoardToEstimate.png");
 
         Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
         cameraMat.put(0, 0, CAM_MATSIM);
         distCoeffs.put(0, 0, DIST_COEFFSIM);
 
+        // TODO find the best fixedAstrobeeToWallDist
+        double fixedAstrobeeToWallDist_z = 0.65;
+
         try {
             Log.i(TAG, "Read AR for ARUCO board pose estimation");
-            ArBoard detectedBoard = readAR(img);
+            ArBoard detectedBoard = readAR(ar_img);
+            Log.i(TAG, "Reading AR DONE########");
+            if (!detectedBoard.isBoardComplete()) {
+                Log.e(TAG, "Fail to estimate board pose, not all 4 markers are found");
+                Log.i(TAG, "Due to failure, will return fixed AstrobeeToWallDist_z= " + fixedAstrobeeToWallDist_z);
+                return fixedAstrobeeToWallDist_z;
+            }
+
             List<Mat> corners = detectedBoard.getCorners();
             Mat detectedIDs = detectedBoard.getIds();
-            Log.i(TAG, "Reading AR DONE########");
 
             Mat tvec = new Mat();
             Mat rvec = new Mat();
-
-            Mat detectedMarkerImg = new Mat();
-            Imgproc.cvtColor(img, detectedMarkerImg, Imgproc.COLOR_GRAY2RGB);
-            Aruco.drawDetectedMarkers(detectedMarkerImg, corners);
-            api.saveMatImage(detectedMarkerImg, "ArucoDetectedMarker.png");
 
             Mat boardIDs = new Mat(4, 1, CvType.CV_8U);
             boardIDs.put(0, 0, 12);
@@ -264,16 +219,15 @@ public class YourService extends KiboRpcService {
             Log.i(TAG, "Board tvec: " + tvec.dump());
             Log.i(TAG, "Board rvec: " + rvec.dump());
 
-            Aruco.drawAxis(detectedMarkerImg, cameraMat, distCoeffs, rvec, tvec, MARKER_LENGTH);
-            api.saveMatImage(detectedMarkerImg, "ArucoBoardPose.png");
-            double tvec_z = tvec.get(2, 0)[0];
-            return tvec_z;
+            Aruco.drawAxis(ar_img, cameraMat, distCoeffs, rvec, tvec, (float) MARKER_LENGTH);
+            api.saveMatImage(ar_img, "ArucoBoardPose.png");
+            double astrobeeToWallDist = tvec.get(2, 0)[0] + CAM_POS[0];
+            Log.i(TAG, "Astrobee2WallDist_z=" + astrobeeToWallDist);
+            return astrobeeToWallDist;
         } catch (Exception e) {
             Log.e(TAG, "Fail to estimate board pose", e);
-            // TODO find the best fixedCam2WallDis
-            double fixedCam2WallDis = 0.47;
-            Log.i(TAG, "Due to failure, returning fixed Cam2WallDis= " + fixedCam2WallDis);
-            return fixedCam2WallDis;
+            Log.i(TAG, "Due to failure, returning fixed Astrobee2WallDist_z= " + fixedAstrobeeToWallDist_z);
+            return fixedAstrobeeToWallDist_z;
         }
     }
 
@@ -297,9 +251,15 @@ public class YourService extends KiboRpcService {
             String status = corners.size() == 4 ? "Success" : "Fail";
             Log.i(TAG, "Reading AR tags " + status);
             Log.i(TAG, "AR ids: " + detectedIDs.dump());
+
             for (Mat c : corners) {
                 Log.i(TAG, "AR pos: " + c.dump());
             }
+
+            Mat detectedMarkerImg = new Mat();
+            Imgproc.cvtColor(img, detectedMarkerImg, Imgproc.COLOR_GRAY2RGB);
+            Aruco.drawDetectedMarkers(detectedMarkerImg, corners);
+            api.saveMatImage(detectedMarkerImg, "ArucoDetectedMarker.png");
         } catch (Exception e) {
             Log.e(TAG, "Fail reading AR tags", e);
         }
@@ -308,6 +268,18 @@ public class YourService extends KiboRpcService {
     }
 
     private List<Mat> initializeTarget2AR_points() {
+        final double target2_marker_x_dist = 0.225;
+        final double target2_marker_y_dist = 0.083;
+
+        final double[] marker12_point = {0, 0, 0};
+        final double[] marker11_point = {target2_marker_x_dist, 0, 0};
+        final double[] marker14_point = {target2_marker_x_dist, target2_marker_y_dist, 0};
+        final double[] marker13_point = {0, target2_marker_y_dist, 0};
+
+        final double[][] markersPoint = {
+                marker12_point, marker11_point, marker14_point, marker13_point
+        };
+
         List<Mat> markerObjPoints = new ArrayList<>();
         int markersCnt = 4;
         for (int i = 0; i < markersCnt; i++) {
@@ -326,274 +298,124 @@ public class YourService extends KiboRpcService {
         return markerObjPoints;
     }
 
-    private double[] findTarget(Mat pic) {
-        final String TAG = "findTargetCenter";
-        Mat circles = new Mat();
+    private Mat undistortCroppedImg(Mat img, int x, int y) {
+        // change principal point of CAM_MATSIM
+        double[] NEW_CAM_MAT = new double[9];
+        System.arraycopy(CAM_MATSIM, 0, NEW_CAM_MAT, 0, 9);
+        NEW_CAM_MAT[2] -= x;
+        NEW_CAM_MAT[5] -= y;
 
-        try {
-            Imgproc.HoughCircles(pic, circles, Imgproc.HOUGH_GRADIENT, 1.0,
-                    (double) pic.rows() / 16, // change this value to detect circles with different distances to each other
-                    100.0, 30.0, 1, 30); // change the last two parameters
-            // (min_radius & max_radius) to detect larger circles
-            Log.i(TAG, "Succeed HoughCircles");
-            // circle center
-            Mat ArucoDetectedCenter = pic.clone();
-
-            double[] c = circles.get(0, 0);
-            org.opencv.core.Point center = new org.opencv.core.Point(Math.round(c[0]), Math.round(c[1]));
-
-            Imgproc.circle(ArucoDetectedCenter, center, 1, new Scalar(255, 0, 255), 3, 8, 0);
-            api.saveMatImage(ArucoDetectedCenter, (System.currentTimeMillis() - debug_Timestart) + " ArucoDetectedCenter.png");
-
-            double[] point = {center.x, center.y};
-
-            Log.i(TAG, "Succeed findTargetCenter =" + Arrays.toString(point));
-            return point;
-        } catch (Exception e) {
-            //######################
-            FAIL_to_Find_TARGET = true;
-            //######################
-            Log.e(TAG, "findTargetCenter_Cycle", e);
-            // TODO find the best fixed point
-            double[] point = {-1, -1}; // fixed point
-            Log.i(TAG, "Can't find target. Returning fixed target point= " + Arrays.toString(point));
-            return point;
-        }
-    }
-
-    private Mat undistortPoints(Mat points) {
-        // in -> rows:1, cols:4
-        // in -> 1xN 2 Channel
-
+        Mat ud_img = new Mat(img.rows(), img.cols(), img.type());
         Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
 
-        cameraMat.put(0, 0, CAM_MATSIM);
+        cameraMat.put(0, 0, NEW_CAM_MAT);
         distCoeffs.put(0, 0, DIST_COEFFSIM);
+        Imgproc.undistort(img, ud_img, cameraMat, distCoeffs);
 
-        Mat out = new Mat(points.rows(), points.cols(), points.type());
-
-        Imgproc.undistortPoints(points, out, cameraMat, distCoeffs, new Mat(), cameraMat);
-
-        // out -> 1xN 2 Channel
-        return out;
+        return ud_img;
     }
 
-    private Mat undistortPic(Mat pic) {
-        final String TAG = "undistortPic";
-        api.saveMatImage(pic, (System.currentTimeMillis() - debug_Timestart) + " Input Pic to undistort.png");
+    // down angle
+    private double computeXAngle(double l2t, double yc) {
+        final double navX = 0.1302;
+        final double navY = 0.1111;
 
-        Log.i(TAG, "Start");
+        // Angle calculation from tools/laser.ipynb
+        final double pivotAngle = 2.435184375290124;
+        final double d = 0.1711585522257068;
 
-        try {
-            Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
-            Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
+        // Length from Astrobee pivot to target
+        double l = Math.sqrt(Math.pow(l2t, 2) + Math.pow(yc, 2));
 
-            cameraMat.put(0, 0, CAM_MATSIM);
-            distCoeffs.put(0, 0, DIST_COEFFSIM);
-            Mat out = new Mat(pic.rows(), pic.cols(), pic.type());
+        double lp = Math.sqrt(Math.pow(l2t-navX, 2) + Math.pow(yc-navY, 2));
 
-            undistort(pic, out, cameraMat, distCoeffs);
+        double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
+        double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
 
-            api.saveMatImage(out, (System.currentTimeMillis() - debug_Timestart) + " undistort pic.png");
-            Log.i(TAG, "Succeed undistort");
-            return out;
-        } catch (Exception e) {
-            Log.i(TAG, "Fail undistort " + e);
-            return pic;
-        }
+        String TAG = "computeXAngle";
+        Log.i(TAG, "l = " + l);
+        Log.i(TAG, "lp = " + lp);
+        Log.i(TAG, "angle1 = " + angle1);
+        Log.i(TAG, "angle2 = " + angle2);
+        Log.i(TAG, "turn_angle = " + Math.toDegrees(angle1 - angle2) + " deg");
+
+        return angle1 - angle2;
     }
 
-    private double[] pixelDistanceToAngle(double[] target, double cam2walldis, double meter_perPx) {
-        final String TAG = "pixelDistanceToAngle";
-        Log.i(TAG, "================== pixelDistanceToAngle ==================");
-        //double[] ref  = {640, 480};
-        double[] ref = {635.434258, 500.335102};
-        double xDistance = (target[0] + 350) - ref[0];
-        double yDistance = ref[1] - (target[1] + 350);
+    // left angle
+    private double computeYAngle(double l2t, double xc) {
+        final double navX = 0.0572;
+        final double navY = 0.1302;
 
-//        double cam2walldis = focusCamera * 5 / arTag_sizePx;
-//        final double cam2walldis = 0.56 ; // focusCamera = 4.161542
+        // Angle calculation from tools/laser.ipynb
+        final double pivotAngle = 2.727652176143348;
+        final double d = 0.14221068876846074;
 
+        // Length from Astrobee pivot to target
+        double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2t, 2));
 
-        Log.i(TAG, "xDistance=" + xDistance);
-        Log.i(TAG, "yDistance=" + yDistance);
-        Log.i(TAG, "cam2walldis=" + cam2walldis);
+        double lp = Math.sqrt(Math.pow(xc - navX, 2) + Math.pow(l2t - navY, 2));
 
-        double k2w = cam2walldis + cam_depth;
-        double l2w = cam2walldis - (laser_depth - cam_depth);
-        Log.i(TAG, "k2w = " + k2w);
-        Log.i(TAG, "l2w = " + l2w);
+        double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
+        double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
 
+        String TAG = "computeYAngle";
+        Log.i(TAG, "l = " + l);
+        Log.i(TAG, "lp = " + lp);
+        Log.i(TAG, "angle1 = " + angle1);
+        Log.i(TAG, "angle2 = " + angle2);
+        Log.i(TAG, "turn_angle = " + Math.toDegrees(angle1 - angle2) + " deg");
 
-        double cam_target_dis_x = (xDistance * meter_perPx);
-        double cam_target_dis_y = (yDistance * meter_perPx);
-        Log.i(TAG, "cam_target_dis (x)= " + cam_target_dis_x);
-        Log.i(TAG, "cam_target_dis (y)= " + cam_target_dis_y);
-
-        //########  horizonAngle axis #######
-        double horizonAngle = horizonAngle_axis(cam_target_dis_x, k2w, l2w);
-        Log.i(TAG, "horizonAngle(x)= " + horizonAngle);
-        //###################################
-
-        //########  verticalAngle axis #######
-        double verticalAngle = verticalAngle_axis(cam_target_dis_y, k2w, l2w);
-        Log.i(TAG, "verticalAngle(y)= " + verticalAngle);
-        //###################################
-
-        double[] out = {horizonAngle, verticalAngle};
-        Log.i(TAG, "Angle(x,y)= " + Arrays.toString(out));
-        Log.i(TAG, "================== Done ==================");
-        return out;
+        return angle1 - angle2;
     }
 
-    private double horizonAngle_axis(double cam_target_dis_x, double k2w, double l2w) {
-        final String TAG = "horizonAngle_axis";
-        double horizonAngle;
-        double A_angel = 0;
-        double k2t_x = cam_target_dis_x - cam_width;
-        double l2t_x = cam_target_dis_x - (cam_width + laser_width);
-        Log.i(TAG, "kibo 2 target _x(x)= " + k2t_x);
-        Log.i(TAG, "laser 2 target _x(x)= " + l2t_x);
-
-        double ok2t_dx = Math.sqrt((k2w * k2w) + (k2t_x * k2t_x));
-        Log.i(TAG, "ok2t_dx= " + ok2t_dx);
-        double ol2t_dx = Math.sqrt((l2w * l2w) + (l2t_x * l2t_x));
-        Log.i(TAG, "ol2t_dx= " + ol2t_dx);
-        double orl2t_dx = Math.sqrt(Math.abs((ok2t_dx * ok2t_dx) - (laser_width * laser_width))) - laser_depth;
-        Log.i(TAG, "orl2t_dx= " + orl2t_dx);
-
-        double cosVal_A_R = ((orl2t_dx * orl2t_dx) + (ok2t_dx * ok2t_dx) - (laser_oblique_x * laser_oblique_x)) / (2 * orl2t_dx * ok2t_dx);
-        Log.i(TAG, "cosVal_A_R= " + cosVal_A_R);
-
-        double A_R = Math.toDegrees(Math.acos(cosVal_A_R));
-        Log.i(TAG, "A_R (x)= " + A_R);
-
-        double A_K = Math.toDegrees(Math.atan(k2w / Math.abs(k2t_x)));
-        Log.i(TAG, "A_K (x)= " + A_K);
-
-        double A_L = Math.toDegrees(Math.atan(l2w / Math.abs(l2t_x)));
-        Log.i(TAG, "A_L (x)= " + A_L);
-
-        if (k2t_x < 0) {
-            Log.i(TAG, "target on Left  of kibo : " + l2t_x);
-            A_angel = A_K - (A_R + A_L);
-        } else {
-            if (l2t_x < 0) {
-                Log.i(TAG, "target on Left  of laser : " + l2t_x);
-                A_angel = 180 - (A_R + A_L + A_K);
-            } else if (l2t_x > 0) {
-                Log.i(TAG, "target on Right of laser : " + l2t_x);
-                A_angel = A_R - (A_L - A_K);
-            }
-        }
-        Log.i(TAG, "A_angel= " + A_angel);
-
-        double X_dis = Math.sqrt((ol2t_dx * ol2t_dx) + (orl2t_dx * orl2t_dx) - 2 * ol2t_dx * orl2t_dx * Math.cos(Math.toRadians(A_angel)));
-        Log.i(TAG, "X_dis= " + X_dis);
-        horizonAngle = (Math.toDegrees(Math.asin((X_dis / 2) / laser_oblique_x))) * 2;
-
-        if (l2t_x < 0) {
-            Log.i(TAG, "horizonAngle are negative");
-            horizonAngle = horizonAngle * -1;
-        }
-
-        Log.i(TAG, "horizonAngle= " + horizonAngle);
-
-        return horizonAngle;
-    }
-
-    private double verticalAngle_axis(double cam_target_dis_y, double k2w, double l2w) {
-        final String TAG = "verticalAngle_axis";
-        double verticalAngle;
-        double A_angel = 0;
-
-        double k2t_y = cam_target_dis_y + cam_high;
-        double l2t_y = cam_target_dis_y - (laser_high - cam_high);
-        Log.i(TAG, "kibo 2 target _y(y)= " + k2t_y);
-        Log.i(TAG, "laser 2 target _y(y)= " + l2t_y);
-
-
-        double ok2t_dy = Math.sqrt((k2w * k2w) + (k2t_y * k2t_y));
-        Log.i(TAG, "ok2t_dy= " + ok2t_dy);
-        double ol2t_dy = Math.sqrt((l2w * l2w) + (l2t_y * l2t_y));
-        Log.i(TAG, "ol2t_dy= " + ol2t_dy);
-        double orl2t_dy = Math.sqrt(Math.abs((ok2t_dy * ok2t_dy) - (laser_high * laser_high))) - laser_depth;
-        Log.i(TAG, "orl2t_dy= " + orl2t_dy);
-
-        double cosVal_A_R = ((orl2t_dy * orl2t_dy) + (ok2t_dy * ok2t_dy) - (laser_oblique_y * laser_oblique_y)) / (2 * orl2t_dy * ok2t_dy);
-        Log.i(TAG, "cosVal_A_R= " + cosVal_A_R);
-
-        double A_R = Math.toDegrees(Math.acos(cosVal_A_R));
-        Log.i(TAG, "A_R (y)= " + A_R);
-
-        double A_K = Math.toDegrees(Math.atan(k2w / Math.abs(k2t_y)));
-        Log.i(TAG, "A_K (y)= " + A_K);
-
-        double A_L = Math.toDegrees(Math.atan(l2w / Math.abs(l2t_y)));
-        Log.i(TAG, "A_L (y)= " + A_L);
-
-        if (l2t_y > 0) {
-            Log.i(TAG, "target on top  of laser : " + l2t_y);
-            A_angel = (A_R + A_K) - A_L;
-        } else {
-            if (k2t_y < 0) {
-                Log.i(TAG, "target on bottom of kibo : " + k2t_y);
-                A_angel = A_K - (A_R + A_L);
-            } else if (k2t_y > 0) {
-                Log.i(TAG, "target on top  of kibo : " + k2t_y);
-                A_angel = 180 - (A_R + A_L + A_K);
-            }
-        }
-        Log.i(TAG, "A_angel= " + A_angel);
-
-        double X_dis = Math.sqrt((ol2t_dy * ol2t_dy) + (orl2t_dy * orl2t_dy) - 2 * ol2t_dy * orl2t_dy * Math.cos(Math.toRadians(A_angel)));
-        Log.i(TAG, "X_dis= " + X_dis);
-
-        verticalAngle = (Math.toDegrees(Math.asin((X_dis / 2) / laser_oblique_y))) * 2;
-        if (l2t_y < 0) {
-            Log.i(TAG, "verticalAngle are negative");
-            verticalAngle = verticalAngle * -1;
-        }
-
-        return verticalAngle;
-    }
-
+    // https://math.stackexchange.com/questions/2975109/how-to-convert-euler-angles-to-quaternions-and-get-the-same-euler-angles-back-fr
     private Quaternion eulerAngleToQuaternion(double xAngle, double yAngle, double zAngle) {
-        xAngle = Math.toRadians(xAngle);
-        yAngle = Math.toRadians(yAngle);
-        zAngle = Math.toRadians(zAngle);
-        double c1 = Math.cos(yAngle / 2);
-        double c2 = Math.cos(zAngle / 2);
-        double c3 = Math.cos(xAngle / 2);
-        double s1 = Math.sin(yAngle / 2);
-        double s2 = Math.sin(zAngle / 2);
-        double s3 = Math.sin(xAngle / 2);
+        double qx = Math.sin(xAngle/2) * Math.cos(yAngle/2) * Math.cos(zAngle/2) -
+                Math.cos(xAngle/2) * Math.sin(yAngle/2) * Math.sin(zAngle/2);
+        double qy = Math.cos(xAngle/2) * Math.sin(yAngle/2) * Math.cos(zAngle/2) +
+                Math.sin(xAngle/2) * Math.cos(yAngle/2) * Math.sin(zAngle/2);
+        double qz = Math.cos(xAngle/2) * Math.cos(yAngle/2) * Math.sin(zAngle/2) -
+                Math.sin(xAngle/2) * Math.sin(yAngle/2) * Math.cos(zAngle/2);
+        double qw = Math.cos(xAngle/2) * Math.cos(yAngle/2) * Math.cos(zAngle/2) +
+                Math.sin(xAngle/2) * Math.sin(yAngle/2) * Math.sin(zAngle/2);
 
-        double w = c1 * c2 * c3 - s1 * s2 * s3;
-        double x = s1 * s2 * c3 + c1 * c2 * s3;
-        double y = s1 * c2 * c3 + c1 * s2 * s3;
-        double z = c1 * s2 * c3 - s1 * c2 * s3;
-
-        return new Quaternion((float) x, (float) y, (float) z, (float) w);
+        return new Quaternion((float) qx, (float) qy, (float) qz, (float) qw);
     }
 
+    private Quaternion mutiplyQuaternion(Quaternion q1, Quaternion q2) {
+        double s1 = q1.getW();
+        Vector3 v1 = new Vector3(q1.getX(), q1.getY(), q1.getZ());
+        double s2 = q2.getW();
+        Vector3 v2 = new Vector3(q2.getX(), q2.getY(), q2.getZ());
 
-    private Quaternion combineQuaternion(Quaternion newOrientation, Quaternion oldOrientation) {
-        // For multiply quaternion, Apply q2(new) to q1(old)
-        // q1 * q2= a*e - b*f - c*g- d*h + i (b*e + a*f + c*h - d*g) + j (a*g - b*h + c*e + d*f) + k (a*h + b*g - c*f + d*e)
-
-        double x = newOrientation.getX() * oldOrientation.getW() + newOrientation.getY() * oldOrientation.getZ()
-                - newOrientation.getZ() * oldOrientation.getY() + newOrientation.getW() * oldOrientation.getX();
-        double y = -newOrientation.getX() * oldOrientation.getZ() + newOrientation.getY() * oldOrientation.getW()
-                + newOrientation.getZ() * oldOrientation.getX() + newOrientation.getW() * oldOrientation.getY();
-        double z = newOrientation.getX() * oldOrientation.getY() - newOrientation.getY() * oldOrientation.getX()
-                + newOrientation.getZ() * oldOrientation.getW() + newOrientation.getW() * oldOrientation.getZ();
-        double w = -newOrientation.getX() * oldOrientation.getX() - newOrientation.getY() * oldOrientation.getY()
-                - newOrientation.getZ() * oldOrientation.getZ() + newOrientation.getW() * oldOrientation.getW();
-
-        return new Quaternion((float) x, (float) y, (float) z, (float) w);
+        Vector3 a = v2.scale(s1).sum(v1.scale(s2));
+        Vector3 b = v1.cross(v2);
+        Vector3 res = a.sum(b);
+        double w = s1*s2 - v1.dot(v2);
+        return new Quaternion((float) res.getX(), (float) res.getY(), (float) res.getZ(), (float) w);
     }
 
+    private Vector3 vectorOrientation(Quaternion q) {
+        Vector3 v = new Vector3(1, 0, 0); // (0, 0, 0, 1) quaternion -> vector
+        Vector3 u = new Vector3(q.getX(), q.getY(), q.getZ());
+        double s = q.getW();
+
+        Vector3 a =  u.scale(2.0 * u.dot(v));
+        Vector3 b = v.scale(s*s - u.dot(u));
+        Vector3 c = u.cross(v).scale(2.0 * s);
+        return a.sum(b).sum(c);
+    }
+
+    private double vectorAngleDiff(Vector3 v1, Vector3 v2) {
+        double a = v1.dot(v2);
+        double b = v1.size() * v2.size();
+        return Math.toDegrees(Math.acos(a/b));
+    }
+
+    private double compareQuaternion(Quaternion q1, Quaternion q2) {
+        return vectorAngleDiff(vectorOrientation(q1), vectorOrientation(q2));
+    }
 }
 
