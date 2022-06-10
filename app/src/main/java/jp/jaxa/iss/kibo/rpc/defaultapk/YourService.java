@@ -91,8 +91,8 @@ public class YourService extends KiboRpcService {
 
         Mat tvec = estimateTarget2Pose(api.getMatNavCam())[0];
         double astrobeeToWallDist_z = tvec.get(2, 0)[0] + CAM_POS[0];
-        final double xAngle = -computeXAngle(astrobeeToWallDist_z, tvec.get(0, 0)[0] + CAM_POS[1]);
-        final double yAngle = -computeYAngle(astrobeeToWallDist_z, tvec.get(1, 0)[0] - CAM_POS[2]);
+        final double xAngle = -computeXAngle(astrobeeToWallDist_z, -tvec.get(1, 0)[0] - CAM_POS[2]);
+        final double yAngle = -computeYAngle(astrobeeToWallDist_z, tvec.get(0, 0)[0] + CAM_POS[1]);
 
         Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
         Quaternion absoluteQ = mutiplyQuaternion(relativeQ, quaternionAtB);
@@ -207,29 +207,29 @@ public class YourService extends KiboRpcService {
             Target2_Board detectedBoard = readAR_target2(target_ar_img);
             Log.i(TAG, "Reading AR DONE########");
             if (!detectedBoard.isBoardComplete()) {
-                Log.e(TAG, "Fail to estimate board pose, not all 4 markers are found");
-                return null;
+                Log.i(TAG, "****Not all 4 markers are found.****");
             }
 
             List<Mat> corners = detectedBoard.getCorners();
-            Mat detectedIDs = detectedBoard.getIds();
+            Mat ids = detectedBoard.getIds();
 
             Mat tvec = new Mat();
             Mat rvec = new Mat();
 
-            Mat boardIDs = detectedBoard.getIds();
-            Board board = Board.create(detectedBoard.getMarkerObjPoints(), ARUCO_DICT, boardIDs);
+            Board board = Board.create(detectedBoard.getMarkerObjPoints(), ARUCO_DICT, ids);
             for (MatOfPoint3f o : board.get_objPoints()) {
                 Log.i(TAG, "Marker object points: " + o.dump());
             }
-            Log.i(TAG, "Marker ids: " + detectedBoard.getIds());
+            Log.i(TAG, "Marker ids: " + detectedBoard.getIds().dump());
 
-            Aruco.estimatePoseBoard(corners, detectedIDs, board, cameraMat, distCoeffs, rvec, tvec);
+            Aruco.estimatePoseBoard(corners, ids, board, cameraMat, distCoeffs, rvec, tvec);
             Log.i(TAG, "Board tvec: " + tvec.dump());
             Log.i(TAG, "Board rvec: " + rvec.dump());
 
-            Aruco.drawAxis(target_ar_img, cameraMat, distCoeffs, rvec, tvec, (float) detectedBoard.MARKER_LENGTH);
-            api.saveMatImage(target_ar_img, "ArucoBoardPose.png");
+            Mat coloredTargetImg = new Mat();
+            Imgproc.cvtColor(target_ar_img, coloredTargetImg, Imgproc.COLOR_GRAY2RGB);
+            Aruco.drawAxis(coloredTargetImg, cameraMat, distCoeffs, rvec, tvec, (float) detectedBoard.MARKER_LENGTH);
+            api.saveMatImage(coloredTargetImg, "ArucoBoardPose.png");
             return new Mat[] { tvec, rvec };
         } catch (Exception e) {
             Log.e(TAG, "Fail to estimate board pose", e);
