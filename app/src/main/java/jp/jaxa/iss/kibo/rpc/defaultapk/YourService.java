@@ -47,10 +47,6 @@ public class YourService extends KiboRpcService {
             0.1302, 0.0572, -0.1111
     };
 
-    final double target2_board_width = 0.275;
-    final double target2_board_height = 0.133;
-    final double MARKER_LENGTH = 0.05;
-
     long debug_Timestart = 0;
     private boolean FAIL_to_Find_TARGET;
 
@@ -84,16 +80,19 @@ public class YourService extends KiboRpcService {
             e.printStackTrace();
         }
 
-        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(api.getMatNavCam());
-        final int cropPosX = 500;
-        final int cropPosY = 500;
-        Mat croppedImg = new Mat(api.getMatNavCam(), new Rect(cropPosX, cropPosY, 330, 200));
-        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
-        Target target = new Target(targetImg, cropPosX, cropPosY, CAM_MATSIM, astrobeeToWallDist_z);
-        api.saveMatImage(targetImg, "ud_target_img.png");
+//        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(api.getMatNavCam());
+//
+//        final int cropPosX = 500;
+//        final int cropPosY = 500;
+//        Mat croppedImg = new Mat(api.getMatNavCam(), new Rect(cropPosX, cropPosY, 330, 200));
+//        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
+//        Target target = new Target(targetImg, cropPosX, cropPosY, CAM_MATSIM, astrobeeToWallDist_z);
+//        api.saveMatImage(targetImg, "ud_target_img.png");
 
-        final double xAngle = -computeXAngle(astrobeeToWallDist_z, target.getY());
-        final double yAngle = -computeYAngle(astrobeeToWallDist_z, target.getX());
+        Mat tvec = estimateTarget2Pose(api.getMatNavCam())[0];
+        double astrobeeToWallDist_z = tvec.get(2, 0)[0] + CAM_POS[0];
+        final double xAngle = -computeXAngle(astrobeeToWallDist_z, tvec.get(0, 0)[0] + CAM_POS[1]);
+        final double yAngle = -computeYAngle(astrobeeToWallDist_z, tvec.get(1, 0)[0] - CAM_POS[2]);
 
         Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
         Quaternion absoluteQ = mutiplyQuaternion(relativeQ, quaternionAtB);
@@ -175,27 +174,41 @@ public class YourService extends KiboRpcService {
         move_to(p, q);
     }
 
-    private double estimateAstrobeeToWallDist_z(Mat ar_img) {
-        final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
+    private double estimateAstrobeeToWallDist_z(Mat target2_ar_img) {
         final String TAG = "estimateAstrobeeToWallDist_z";
-        api.saveMatImage(ar_img, "InputBoardToEstimate.png");
+        // TODO find the best fixedAstrobeeToWallDist
+        double fixedAstrobeeToWallDist_z = 0.65;
+
+        Mat[] pose = estimateTarget2Pose(target2_ar_img);
+        if (pose == null) {
+            Log.i(TAG, "Due to failure, returning fixed Astrobee2WallDist_z= " + fixedAstrobeeToWallDist_z);
+            return fixedAstrobeeToWallDist_z;
+        }
+
+        Mat tvec = pose[0];
+        double astrobeeToWallDist = tvec.get(2, 0)[0] + CAM_POS[0];
+        Log.i(TAG, "Astrobee2WallDist_z=" + astrobeeToWallDist);
+        return astrobeeToWallDist;
+    }
+
+
+    private Mat[] estimateTarget2Pose(Mat target_ar_img) {
+        final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
+        final String TAG = "estimateTarget2Pose";
+        api.saveMatImage(target_ar_img, "InputBoardToEstimate.png");
 
         Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
         cameraMat.put(0, 0, CAM_MATSIM);
         distCoeffs.put(0, 0, DIST_COEFFSIM);
 
-        // TODO find the best fixedAstrobeeToWallDist
-        double fixedAstrobeeToWallDist_z = 0.65;
-
         try {
             Log.i(TAG, "Read AR for ARUCO board pose estimation");
-            ArBoard detectedBoard = readAR(ar_img);
+            Target2_Board detectedBoard = readAR_target2(target_ar_img);
             Log.i(TAG, "Reading AR DONE########");
             if (!detectedBoard.isBoardComplete()) {
                 Log.e(TAG, "Fail to estimate board pose, not all 4 markers are found");
-                Log.i(TAG, "Due to failure, will return fixed AstrobeeToWallDist_z= " + fixedAstrobeeToWallDist_z);
-                return fixedAstrobeeToWallDist_z;
+                return null;
             }
 
             List<Mat> corners = detectedBoard.getCorners();
@@ -204,34 +217,27 @@ public class YourService extends KiboRpcService {
             Mat tvec = new Mat();
             Mat rvec = new Mat();
 
-            Mat boardIDs = new Mat(4, 1, CvType.CV_8U);
-            boardIDs.put(0, 0, 12);
-            boardIDs.put(1, 0, 11);
-            boardIDs.put(2, 0, 14);
-            boardIDs.put(3, 0, 13);
-
-            Board board = Board.create(initializeTarget2AR_points(), ARUCO_DICT, boardIDs);
+            Mat boardIDs = detectedBoard.getIds();
+            Board board = Board.create(detectedBoard.getMarkerObjPoints(), ARUCO_DICT, boardIDs);
             for (MatOfPoint3f o : board.get_objPoints()) {
                 Log.i(TAG, "Marker object points: " + o.dump());
             }
+            Log.i(TAG, "Marker ids: " + detectedBoard.getIds());
 
             Aruco.estimatePoseBoard(corners, detectedIDs, board, cameraMat, distCoeffs, rvec, tvec);
             Log.i(TAG, "Board tvec: " + tvec.dump());
             Log.i(TAG, "Board rvec: " + rvec.dump());
 
-            Aruco.drawAxis(ar_img, cameraMat, distCoeffs, rvec, tvec, (float) MARKER_LENGTH);
-            api.saveMatImage(ar_img, "ArucoBoardPose.png");
-            double astrobeeToWallDist = tvec.get(2, 0)[0] + CAM_POS[0];
-            Log.i(TAG, "Astrobee2WallDist_z=" + astrobeeToWallDist);
-            return astrobeeToWallDist;
+            Aruco.drawAxis(target_ar_img, cameraMat, distCoeffs, rvec, tvec, (float) detectedBoard.MARKER_LENGTH);
+            api.saveMatImage(target_ar_img, "ArucoBoardPose.png");
+            return new Mat[] { tvec, rvec };
         } catch (Exception e) {
             Log.e(TAG, "Fail to estimate board pose", e);
-            Log.i(TAG, "Due to failure, returning fixed Astrobee2WallDist_z= " + fixedAstrobeeToWallDist_z);
-            return fixedAstrobeeToWallDist_z;
+            return null;
         }
     }
 
-    private ArBoard readAR(Mat img) {
+    private Target2_Board readAR_target2(Mat img) {
         final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
         final String TAG = "getMarkerCorners";
         api.saveMatImage(img, "Input_readAR.png");
@@ -264,38 +270,7 @@ public class YourService extends KiboRpcService {
             Log.e(TAG, "Fail reading AR tags", e);
         }
 
-        return new ArBoard(corners, detectedIDs, target2_board_width, target2_board_height);
-    }
-
-    private List<Mat> initializeTarget2AR_points() {
-        final double target2_marker_x_dist = 0.225;
-        final double target2_marker_y_dist = 0.083;
-
-        final double[] marker12_point = {0, 0, 0};
-        final double[] marker11_point = {target2_marker_x_dist, 0, 0};
-        final double[] marker14_point = {target2_marker_x_dist, target2_marker_y_dist, 0};
-        final double[] marker13_point = {0, target2_marker_y_dist, 0};
-
-        final double[][] markersPoint = {
-                marker12_point, marker11_point, marker14_point, marker13_point
-        };
-
-        List<Mat> markerObjPoints = new ArrayList<>();
-        int markersCnt = 4;
-        for (int i = 0; i < markersCnt; i++) {
-            Point3 topLeft = new Point3(markersPoint[i]);
-            Point3 topRight = new Point3(markersPoint[i][0] + MARKER_LENGTH,
-                    markersPoint[i][1], markersPoint[i][2]);
-            Point3 bottomRight = new Point3(markersPoint[i][0] + MARKER_LENGTH,
-                    markersPoint[i][1] + MARKER_LENGTH, markersPoint[i][2]);
-            Point3 bottomLeft = new Point3(markersPoint[i][0],
-                    markersPoint[i][1] + MARKER_LENGTH, markersPoint[i][2]);
-
-            MatOfPoint3f singleMarkerObjPoint = new MatOfPoint3f(topLeft, topRight, bottomRight,
-                    bottomLeft);
-            markerObjPoints.add(singleMarkerObjPoint);
-        }
-        return markerObjPoints;
+        return new Target2_Board(corners, detectedIDs);
     }
 
     private Mat undistortCroppedImg(Mat img, int x, int y) {
