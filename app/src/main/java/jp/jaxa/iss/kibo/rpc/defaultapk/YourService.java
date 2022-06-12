@@ -80,19 +80,24 @@ public class YourService extends KiboRpcService {
             e.printStackTrace();
         }
 
-//        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(api.getMatNavCam());
-//
-//        final int cropPosX = 500;
-//        final int cropPosY = 500;
-//        Mat croppedImg = new Mat(api.getMatNavCam(), new Rect(cropPosX, cropPosY, 330, 200));
-//        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
-//        Target target = new Target(targetImg, cropPosX, cropPosY, CAM_MATSIM, astrobeeToWallDist_z);
-//        api.saveMatImage(targetImg, "ud_target_img.png");
+        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(api.getMatNavCam());
 
-        Mat tvec = estimateTarget2Pose(api.getMatNavCam())[0];
-        double astrobeeToWallDist_z = tvec.get(2, 0)[0] + CAM_POS[0];
-        final double xAngle = -computeXAngle(astrobeeToWallDist_z, -tvec.get(1, 0)[0] - CAM_POS[2]);
-        final double yAngle = -computeYAngle(astrobeeToWallDist_z, tvec.get(0, 0)[0] + CAM_POS[1]);
+        final int cropPosX = 500;
+        final int cropPosY = 500;
+        final double undistortedCropPosX = 498.50697861;
+        final double undistortedCropPosY = 500.05451296;
+        Mat croppedImg = new Mat(api.getMatNavCam(), new Rect(cropPosX, cropPosY, 330, 200));
+        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
+        Target target = new Target(targetImg, undistortedCropPosX, undistortedCropPosY, CAM_MATSIM, astrobeeToWallDist_z);
+        api.saveMatImage(targetImg, "ud_target_img.png");
+
+        final double xAngle = -computeXAngle(astrobeeToWallDist_z, target.getY());
+        final double yAngle = -computeYAngle(astrobeeToWallDist_z, target.getX());
+
+//        Mat tvec = estimateTarget2Pose(api.getMatNavCam())[0];
+//        double astrobeeToWallDist_z = tvec.get(2, 0)[0] + CAM_POS[0];
+//        final double xAngle = -computeXAngle(astrobeeToWallDist_z, -tvec.get(1, 0)[0] - CAM_POS[2]);
+//        final double yAngle = -computeYAngle(astrobeeToWallDist_z, tvec.get(0, 0)[0] + CAM_POS[1]);
 
         Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
         Quaternion absoluteQ = mutiplyQuaternion(relativeQ, quaternionAtB);
@@ -102,8 +107,6 @@ public class YourService extends KiboRpcService {
         Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
 
         // try rotating to wanted angle and shoot laser
-        Quaternion initialQuaternion = new Quaternion(0, 0, -0.6427876f, 0.7660444f);
-        move_to(B, initialQuaternion);; // reset astrobee
         int retry = 0;
         while (retry <= LOOP_MAX) {
             move_to(B, absoluteQ); // rotate astrobee
@@ -136,7 +139,7 @@ public class YourService extends KiboRpcService {
                 break;
             }
 
-            move_to(B, initialQuaternion);; // reset astrobee
+            move_to(B, quaternionAtB);; // reset astrobee
             retry++;
         }
 

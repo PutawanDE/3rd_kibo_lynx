@@ -11,8 +11,8 @@ public class Target {
     private double xc; // x coordinate in camera frame
     private double yc; // y coordinate in camera frame
 
-    public Target(Mat undistortedImg, int cropPosX, int cropPosY, double[] cameraMatrix, double
-                  astrobeeToWallDist_z) {
+    public Target(Mat undistortedImg, double undistortedCropPosX, double undistortedCropPosY,
+                  double[] cameraMatrix, double astrobeeToWallDist_z) {
         String TAG = "Target";
 
         final double fx = cameraMatrix[0];
@@ -23,7 +23,7 @@ public class Target {
         final double navXOffset = -0.0422;
         final double navYOffset = 0.0826;
 
-        double[] targetPosImg = findCircle(undistortedImg, cropPosX, cropPosY);
+        double[] targetPosImg = findCircle(undistortedImg, undistortedCropPosX, undistortedCropPosY);
         double shiftedTargetPosImgX = targetPosImg[0] - cx;
         double shiftedTargetPosImgY = targetPosImg[1] - cy;
 
@@ -44,7 +44,7 @@ public class Target {
         return yc;
     }
 
-    private double[] findCircle(Mat ud_img, int x, int y) {
+    private double[] findCircle(Mat ud_img, double x, double y) {
         Mat circle = new Mat();
         Imgproc.HoughCircles(ud_img, circle, Imgproc.HOUGH_GRADIENT, 1, 300, 50, 30, 40, 50);
 
