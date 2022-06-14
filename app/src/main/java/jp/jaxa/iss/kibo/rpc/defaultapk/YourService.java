@@ -1,7 +1,9 @@
 package jp.jaxa.iss.kibo.rpc.defaultapk;
 
+import android.graphics.Bitmap;
 import android.util.Log;
 
+import org.opencv.android.Utils;
 import org.opencv.aruco.Aruco;
 import org.opencv.aruco.Board;
 import org.opencv.aruco.Dictionary;
@@ -11,8 +13,10 @@ import org.opencv.core.MatOfPoint3f;
 import org.opencv.core.Point3;
 import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
+import static org.opencv.imgproc.Imgproc.undistort;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import gov.nasa.arc.astrobee.Kinematics;
@@ -80,69 +84,74 @@ public class YourService extends KiboRpcService {
             e.printStackTrace();
         }
 
-        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(api.getMatNavCam());
+        Mat MatNavCam = getNavCam_mat();
+
+        double astrobeeToWallDist_z = estimateAstrobeeToWallDist_z(MatNavCam);
 
         final int cropPosX = 500;
         final int cropPosY = 500;
         final double undistortedCropPosX = 498.50697861;
         final double undistortedCropPosY = 500.05451296;
-        Mat croppedImg = new Mat(api.getMatNavCam(), new Rect(cropPosX, cropPosY, 330, 200));
-        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
-        Target target = new Target(targetImg, undistortedCropPosX, undistortedCropPosY, CAM_MATSIM, astrobeeToWallDist_z);
-        api.saveMatImage(targetImg, "ud_target_img.png");
 
-        final double xAngle = -computeXAngle(astrobeeToWallDist_z, target.getY());
-        final double yAngle = -computeYAngle(astrobeeToWallDist_z, target.getX());
+
+        Mat undisNav = undistortNav_Picture(MatNavCam);
+
+
+        Mat croppedImg = new Mat(MatNavCam, new Rect(cropPosX, cropPosY, 330, 200));
+        api.saveMatImage(croppedImg, (System.currentTimeMillis()-debug_Timestart )+"croppedImg.png");
+        Mat targetImg = undistortCroppedImg(croppedImg, cropPosX, cropPosY);
+        api.saveMatImage(targetImg, (System.currentTimeMillis()-debug_Timestart )+"ud_target_img.png");
+
+        Target target = new Target(undisNav,targetImg, undistortedCropPosX, undistortedCropPosY, CAM_MATSIM, astrobeeToWallDist_z);
+        api.saveMatImage(target.getCenterTarget_crop(), (System.currentTimeMillis()-debug_Timestart )+"CenterTarget_crop.png");
+        api.saveMatImage(target.getCenterTarget_nav(), (System.currentTimeMillis()-debug_Timestart )+"CenterTarget_nav.png");
+
+        final double UD_Angle = -compute_UpDown_XAngle(astrobeeToWallDist_z, target.getY());
+        final double LR_Angle = -compute_LeftRight_Angle(astrobeeToWallDist_z, target.getX());
 
 //        Mat tvec = estimateTarget2Pose(api.getMatNavCam())[0];
 //        double astrobeeToWallDist_z = tvec.get(2, 0)[0] + CAM_POS[0];
 //        final double xAngle = -computeXAngle(astrobeeToWallDist_z, -tvec.get(1, 0)[0] - CAM_POS[2]);
 //        final double yAngle = -computeYAngle(astrobeeToWallDist_z, tvec.get(0, 0)[0] + CAM_POS[1]);
 
-        Quaternion relativeQ = eulerAngleToQuaternion(xAngle, 0, yAngle);
-        Quaternion absoluteQ = mutiplyQuaternion(relativeQ, quaternionAtB);
+        Quaternion relativeQ = eulerAngleToQuaternion(UD_Angle, 0, LR_Angle);
+        Quaternion qToTurn_Target2 = mutiplyQuaternion(relativeQ, quaternionAtB);
 
         String TAG = "Rotation";
         Log.i(TAG, "relativeQ = " + relativeQ.toString());
-        Log.i(TAG, "absoluteQ = " + absoluteQ.toString());
+        Log.i(TAG, "absoluteQ = " + qToTurn_Target2.toString());
 
         // try rotating to wanted angle and shoot laser
         int retry = 0;
-        while (retry <= LOOP_MAX) {
-            move_to(B, absoluteQ); // rotate astrobee
+        try {
+            while (retry <= LOOP_MAX) {
 
-            // compare result with what we need
-            Kinematics res = api.getRobotKinematics();
-            double angleDiff = compareQuaternion(absoluteQ, res.getOrientation());
+                move_to(B, qToTurn_Target2); // rotate astrobee
+                Thread.sleep(500);
+                // compare result with what we need
+                Kinematics res = getLYNXTrustedRobotKinematics();
 
-            Log.i(TAG, String.format("angleDiff = %f", angleDiff));
-            Log.i(TAG, String.format("Result %d = %s, %s, %s",
-                    retry,
-                    res.getConfidence(),
-                    res.getPosition().toString(),
-                    res.getOrientation().toString()
-            ));
+                double angleDiff = compareQuaternion(qToTurn_Target2, res.getOrientation());
+                Log.i(TAG, String.format("angleDiff = %f", angleDiff));
+                Log.i(TAG, String.format("Result %d = %s, %s, %s", retry, res.getConfidence(), res.getPosition().toString(), res.getOrientation().toString()));
 
-            if (angleDiff < 1) {
-                try {
-                    Thread.sleep(500);
-                } catch (Exception ignored) {}
-                api.laserControl(true);
-                break;
+                if( angleDiff < (0.4 + retry / 10.0 )  ){
+                    Log.i(TAG,"retry: "+ retry  + " angleDiff " + angleDiff);
+                    api.laserControl(true);
+                    break;
+                }
+                else if (retry == LOOP_MAX) {
+                    // last resort shooting
+                    Log.i(TAG,"retry == "+LOOP_MAX+" out of bound" + " angleDiff " + angleDiff);
+                    api.laserControl(true);
+                    break;
+                }
+
+                move_to(B, quaternionAtB); // reset astrobee
+                Thread.sleep(1000);
+                retry++;
             }
-            else if (retry == LOOP_MAX) {
-                // last resort shooting
-                try {
-                    Thread.sleep(500);
-                } catch (Exception ignored) {}
-                api.laserControl(true);
-                break;
-            }
-
-            move_to(B, quaternionAtB);; // reset astrobee
-            retry++;
-        }
-
+        }catch (Exception e){Log.i("angleDiff Exception", e.toString());}
         api.takeTarget2Snapshot();
 
         // move to goal
@@ -163,13 +172,61 @@ public class YourService extends KiboRpcService {
         // write here your plan 3
     }
 
+    private Mat getNavCam_mat(){
+        int counter = 0;
+        boolean pic_same;
+        Mat navpic_old;
+        Mat navpic_now = null;
+
+        try {
+            do {
+                Log.i("getNavCam_mat", "LinearAcceleration:" +  getLYNXTrustedRobotKinematics().getLinearAcceleration());
+                Log.i("getNavCam_mat", "AngularVelocity:" + getLYNXTrustedRobotKinematics().getAngularVelocity());
+
+                navpic_old = api.getMatNavCam();
+                Thread.sleep(1000);
+                navpic_now = api.getMatNavCam();
+
+                int h1 = hash(navpic_old);
+                int h2 = hash(navpic_now);
+                Log.i("getNavCam_mat", "h1=" + h1);
+                Log.i("getNavCam_mat", "h2=" + h2);
+
+
+                pic_same  = (h1 == h2);
+                Log.i("getNavCam_mat", pic_same+ ":" + counter);
+                counter++;
+            } while (!pic_same && (counter < LOOP_MAX));
+
+        }catch (Exception e){
+            Log.i("getNavCam_mat Exception", e.toString());
+        }
+
+        return navpic_now;
+    }
+    private int hash(Mat pic){
+        Bitmap bitmapImage = Bitmap.createBitmap(pic.width(), pic.height(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(pic, bitmapImage);
+
+        int[] buffer = new int[bitmapImage.getWidth() * bitmapImage.getHeight()];
+        bitmapImage.getPixels(buffer, 0, bitmapImage.getWidth(), 0, 0, bitmapImage.getWidth(), bitmapImage.getHeight());
+        return Arrays.hashCode(buffer);
+    }
+
     private void move_to(Point p, Quaternion q) {
+        final String TAG = "move_to";
         int counter = 0;
         Result result;
+        Log.i(TAG, "Start move to p:"  +p +", q:" + q);
         do {
             result = api.moveTo(p, q, true);
+            Log.i(TAG, "Retry move " + counter + " to " +p +", q:" + q);
+            Log.i(TAG, "result move " + result.getStatus());
+
             counter++;
         } while (!result.hasSucceeded() && (counter < LOOP_MAX));
+        Log.i(TAG, "Done move to p:"  +p +", q:" + q);
+        Log.i(TAG, "Api position:"  + api.getRobotKinematics().getPosition() +", q:" + api.getRobotKinematics().getOrientation());
     }
 
     private void move_to(double x, double y, double z, Quaternion q) {
@@ -179,8 +236,10 @@ public class YourService extends KiboRpcService {
 
     private double estimateAstrobeeToWallDist_z(Mat target2_ar_img) {
         final String TAG = "estimateAstrobeeToWallDist_z";
+        final boolean useFixed = false;
+
         // TODO find the best fixedAstrobeeToWallDist
-        double fixedAstrobeeToWallDist_z = 0.65;
+        double fixedAstrobeeToWallDist_z = 0.6762905909538269;
 
         Mat[] pose = estimateTarget2Pose(target2_ar_img);
         if (pose == null) {
@@ -188,6 +247,10 @@ public class YourService extends KiboRpcService {
             return fixedAstrobeeToWallDist_z;
         }
 
+        if(useFixed){
+            Log.i(TAG, "useFixed Astrobee2WallDist_z= 0.6762905909538269");
+            fixedAstrobeeToWallDist_z = 0.6762905909538269;
+        }
         Mat tvec = pose[0];
         double astrobeeToWallDist = tvec.get(2, 0)[0] + CAM_POS[0];
         Log.i(TAG, "Astrobee2WallDist_z=" + astrobeeToWallDist);
@@ -198,7 +261,7 @@ public class YourService extends KiboRpcService {
     private Mat[] estimateTarget2Pose(Mat target_ar_img) {
         final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
         final String TAG = "estimateTarget2Pose";
-        api.saveMatImage(target_ar_img, "InputBoardToEstimate.png");
+        api.saveMatImage(target_ar_img, (System.currentTimeMillis()-debug_Timestart )+"InputBoardToEstimate.png");
 
         Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
         Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
@@ -232,7 +295,7 @@ public class YourService extends KiboRpcService {
             Mat coloredTargetImg = new Mat();
             Imgproc.cvtColor(target_ar_img, coloredTargetImg, Imgproc.COLOR_GRAY2RGB);
             Aruco.drawAxis(coloredTargetImg, cameraMat, distCoeffs, rvec, tvec, (float) detectedBoard.MARKER_LENGTH);
-            api.saveMatImage(coloredTargetImg, "ArucoBoardPose.png");
+            api.saveMatImage(coloredTargetImg, (System.currentTimeMillis()-debug_Timestart )+"ArucoBoardPose.png");
             return new Mat[] { tvec, rvec };
         } catch (Exception e) {
             Log.e(TAG, "Fail to estimate board pose", e);
@@ -243,7 +306,7 @@ public class YourService extends KiboRpcService {
     private Target2_Board readAR_target2(Mat img) {
         final Dictionary ARUCO_DICT = Aruco.getPredefinedDictionary(Aruco.DICT_5X5_250);
         final String TAG = "getMarkerCorners";
-        api.saveMatImage(img, "Input_readAR.png");
+        api.saveMatImage(img, (System.currentTimeMillis()-debug_Timestart )+"Input_readAR.png");
 
         List<Mat> corners = new ArrayList<>();
         Mat detectedIDs = new Mat();
@@ -268,7 +331,7 @@ public class YourService extends KiboRpcService {
             Mat detectedMarkerImg = new Mat();
             Imgproc.cvtColor(img, detectedMarkerImg, Imgproc.COLOR_GRAY2RGB);
             Aruco.drawDetectedMarkers(detectedMarkerImg, corners);
-            api.saveMatImage(detectedMarkerImg, "ArucoDetectedMarker.png");
+            api.saveMatImage(detectedMarkerImg, (System.currentTimeMillis()-debug_Timestart )+"ArucoDetectedMarker.png");
         } catch (Exception e) {
             Log.e(TAG, "Fail reading AR tags", e);
         }
@@ -294,10 +357,33 @@ public class YourService extends KiboRpcService {
         return ud_img;
     }
 
+    public Mat undistortNav_Picture(Mat pic) {
+        final String TAG = "undistortPic";
+        Log.i(TAG, "Start");
+
+        try {
+            Mat cameraMat = new Mat(3, 3, CvType.CV_32FC1);
+            Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
+
+            cameraMat.put(0, 0, CAM_MATSIM);
+            distCoeffs.put(0, 0, DIST_COEFFSIM);
+            Mat out = new Mat(pic.rows(), pic.cols(), pic.type());
+
+            undistort(pic, out, cameraMat,distCoeffs);
+//            api.saveMatImage(out,  (System.currentTimeMillis()-debug_Timestart ) + " undistort pic.png");
+            Log.i(TAG, "Succeed undistort  "  );
+            return out;
+        }catch (Exception e){
+
+            Log.i(TAG, "Fail undistort " + e );
+            return pic;
+        }
+    }
+
     // down angle
-    private double computeXAngle(double l2t, double yc) {
-        final double navX = 0.1302;
-        final double navY = 0.1111;
+    private double compute_UpDown_XAngle(double l2t, double yc) {
+        final double laser_depth   = 0.1302;
+        final double laser_high  = 0.1111;
 
         // Angle calculation from tools/laser.ipynb
         final double pivotAngle = 2.435184375290124;
@@ -306,12 +392,12 @@ public class YourService extends KiboRpcService {
         // Length from Astrobee pivot to target
         double l = Math.sqrt(Math.pow(l2t, 2) + Math.pow(yc, 2));
 
-        double lp = Math.sqrt(Math.pow(l2t-navX, 2) + Math.pow(yc-navY, 2));
+        double lp = Math.sqrt(Math.pow(l2t - laser_depth  , 2) + Math.pow(yc - laser_high , 2));
 
         double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
 
-        String TAG = "computeXAngle";
+        String TAG = "compute_UpDown_XAngle";
         Log.i(TAG, "l = " + l);
         Log.i(TAG, "lp = " + lp);
         Log.i(TAG, "angle1 = " + angle1);
@@ -322,9 +408,9 @@ public class YourService extends KiboRpcService {
     }
 
     // left angle
-    private double computeYAngle(double l2t, double xc) {
-        final double navX = 0.0572;
-        final double navY = 0.1302;
+    private double compute_LeftRight_Angle(double l2t, double xc) {
+        final double laser_width = 0.0572;
+        final double laser_depth   = 0.1302;
 
         // Angle calculation from tools/laser.ipynb
         final double pivotAngle = 2.727652176143348;
@@ -333,12 +419,12 @@ public class YourService extends KiboRpcService {
         // Length from Astrobee pivot to target
         double l = Math.sqrt(Math.pow(xc, 2) + Math.pow(l2t, 2));
 
-        double lp = Math.sqrt(Math.pow(xc - navX, 2) + Math.pow(l2t - navY, 2));
+        double lp = Math.sqrt(Math.pow(xc - laser_width, 2) + Math.pow(l2t - laser_depth  , 2));
 
         double angle1  = Math.acos((Math.pow(d, 2) + Math.pow(l, 2) - Math.pow(lp, 2))/(2*d*l));
         double angle2  = Math.toRadians(180) - pivotAngle - Math.asin((d*Math.sin(pivotAngle))/l);
 
-        String TAG = "computeYAngle";
+        String TAG = "compute_LeftRight_Angle";
         Log.i(TAG, "l = " + l);
         Log.i(TAG, "lp = " + lp);
         Log.i(TAG, "angle1 = " + angle1);
@@ -394,6 +480,30 @@ public class YourService extends KiboRpcService {
 
     private double compareQuaternion(Quaternion q1, Quaternion q2) {
         return vectorAngleDiff(vectorOrientation(q1), vectorOrientation(q2));
+    }
+
+    private Kinematics getLYNXTrustedRobotKinematics() {
+        Log.i("GongApi", "[Start] getTrustedRobotKinematics");
+        Log.i("GongApi", "[getTrustedRobotKinematics] Waiting for robot to acquire position.");
+        Kinematics k = api.getRobotKinematics();
+        long start_point = System.currentTimeMillis();
+
+        for(long end_point = System.currentTimeMillis(); end_point - start_point < 30000L; end_point = System.currentTimeMillis()) {
+            k = api.getRobotKinematics();
+            if (k.getConfidence() == Kinematics.Confidence.GOOD) {
+                Log.i("GongApi", "[getTrustedRobotKinematics] Break loop");
+                break;
+            }
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException var7) {
+                Log.i("GongApi", "[getTrustedRobotkinematics] It was not possible to get a trusted kinematics. Sorry.");
+                break;
+            }
+        }
+
+        Log.i("GongApi", "[Finish] getTrustedRobotKinematics");
+        return k;
     }
 }
 
