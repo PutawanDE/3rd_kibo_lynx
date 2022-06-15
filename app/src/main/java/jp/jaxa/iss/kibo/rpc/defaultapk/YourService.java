@@ -31,7 +31,7 @@ import jp.jaxa.iss.kibo.rpc.api.KiboRpcService;
 
 public class YourService extends KiboRpcService {
 
-    final int LOOP_MAX = 5;
+    final int LOOP_MAX = 6;
 
     final double[] CAM_MATSIM = {
             523.105750, 0.000000, 635.434258,
@@ -135,7 +135,7 @@ public class YourService extends KiboRpcService {
                 Log.i(TAG, String.format("angleDiff = %f", angleDiff));
                 Log.i(TAG, String.format("Result %d = %s, %s, %s", retry, res.getConfidence(), res.getPosition().toString(), res.getOrientation().toString()));
 
-                if( angleDiff < (0.4 + retry / 10.0 )  ){
+                if( angleDiff < 1  ){
                     Log.i(TAG,"retry: "+ retry  + " angleDiff " + angleDiff);
                     api.laserControl(true);
                     break;
